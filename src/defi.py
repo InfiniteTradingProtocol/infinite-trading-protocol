@@ -9,10 +9,10 @@ import time
 coins_list = [
         {"coin": "ULP", "contract": "0xC36442b4a4522E871399CD717aBDD847Ab11FE88", "network":"polygon","pair":"ULP-USD"},
         {"coin": "MaticX", "contract": "0xfa68fb4628dff1028cfec22b4162fccd0d45efb6", "network":"polygon","pair":"MaticX-USD"},
-        {"coin": "USDC", "contract": "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174", "network": "polygon","pair":"USD-USD"},
-        {"coin": "WETH", "contract": "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619", "network": "polygon","pair":"ETH-USD"},
-        {"coin": "WMATIC", "contract": "0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270", "network": "polygon","pair":"MATIC-USD"},
-        {"coin": "WBTC", "contract": "0x1bfd67037b42cf73acf2047067bd4f2c47d9bfd6", "network": "polygon","pair":"BTC-USD"},
+        {"coin": "USDC", "contract": "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174", "network": "polygon","pair":"USDC-USD"},
+        {"coin": "WETH", "contract": "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619", "network": "polygon","pair":"WETH-USD"},
+        {"coin": "WMATIC", "contract": "0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270", "network": "polygon","pair":"WMATIC-USD"},
+        {"coin": "WBTC", "contract": "0x1bfd67037b42cf73acf2047067bd4f2c47d9bfd6", "network": "polygon","pair":"WBTC-USD"},
         {"coin": "ETHBEAR1X", "contract": "0x79d2aefe6a21b26b024d9341a51f6b7897852499", "network": "polygon","pair":"ETHBEAR1X-USD"},
         {"coin": "MATICBEAR1X", "contract": "0x8987ca55e635d0d3ba9469ee31e9b8a7d447e9cc", "network": "polygon","pair":"MATICBEAR1X-USD"},
         {"coin": "BTCBEAR1X", "contract": "0x86c3dd18baf4370495d9228b58fd959771285c55", "network": "polygon","pair":"BTCBEAR1X-USD"},
@@ -47,8 +47,8 @@ coins_list = [
         {"coin": "USDmny", "contract": "0x49bf093277bf4dde49c48c6aa55a3bda3eedef68", "network": "optimism","pair":"USDmny-USD"},
         {"coin": "SNX", "contract": "0x8700daec35af8ff88c16bdf0418774cb3d7599b4", "network": "optimism","pair":"SNX-USD"},
         {"coin": "LINK", "contract": "0x350a791bfc2c21f9ed5d10980dad2e2638ffa7f6", "network": "optimism","pair":"LINK-USD"},
-        {"coin": "WBTC", "contract": "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f", "network": "arbitrum","pair":"BTC-USD"},
-        {"coin": "WETH", "contract": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1", "network": "arbitrum","pair":"ETH-USD"},
+        {"coin": "WBTC", "contract": "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f", "network": "arbitrum","pair":"WBTC-USD"},
+        {"coin": "WETH", "contract": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1", "network": "arbitrum","pair":"WETH-USD"},
         {"coin": "USDC", "contract": "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8", "network": "arbitrum","pair":"USDC-USD"},
         {"coin": "USDT", "contract": "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9", "network": "arbitrum","pair":"USDT-USD"}
 ] 
@@ -124,3 +124,87 @@ def dhedgeComposition(pool,network):
     df['price'] = df['rate'] / (10 ** 18)
     df = df.drop(['balance','rate'], axis=1)
     return df
+
+
+#Obtain the URL for each network
+
+def url(network):
+    if network == "mainnet" or network == "ethereum":
+        api_url = "https://api.etherscan.io/api"
+    elif network == "polygon":
+        api_url = "https://api.polygonscan.com/api"
+    elif network == "optimism":
+        api_url = "https://api-optimistic.etherscan.io/api"
+    elif network == "arbitrum":
+        api_url = "https://api.arbiscan.io/api"
+    else:
+        raise ValueError("Invalid network parameter. Valid options are 'mainnet', 'polygon', 'optimism', or 'arbitrum'.")
+    
+    return api_url
+
+#Obtain the transaction status from the hash and network.
+
+def tx_status(hash, network):
+    # Set the Etherscan API endpoint URL based on the network parameter
+    api_url = url(network)
+    # Set the Etherscan API endpoint parameters
+    api_params = {
+        "module": "transaction",
+        "action": "gettxreceiptstatus",
+        "txhash": hash
+    }
+
+    # Make the API call to get the transaction status
+    api_response = requests.get(api_url, params=api_params)
+    api_content = api_response.json()
+
+    # Check if the API call was successful
+    if api_response.status_code != 200:
+        raise ValueError(f"Error: API call failed with status code {api_response.status_code}")
+
+    # Check if the transaction was found
+    if api_content["status"] != "1":
+        raise ValueError("Error: Transaction not found or invalid transaction hash.")
+
+    # Return the transaction status
+    if network == "mainnet" or network == "optimism":
+        if api_content["result"]["isError"] == "1":
+            return "Error"
+        elif int(api_content["result"]["status"]) == 1:
+            return "Success"
+        else:
+            return "Pending"
+    elif network == "polygon":
+        if api_content["result"]["status"] == "0":
+            return "Error"
+        elif int(api_content["result"]["status"]) == 1:
+            return "Success"
+        else:
+            return "Pending"
+
+def wallet_balance(address, network):
+    # Define the URL based on the network parameter
+    api_url = url(network) 
+
+    # Construct the URL with parameters
+    api_params = {
+        "module": "account",
+        "action": "balance",
+        "address": address,
+        "tag": "latest"
+    }
+
+    response = requests.get(api_url, params=api_params)
+
+    # Check if the API call was successful
+    if response.status_code != 200:
+        raise ValueError(f"Error: API call failed with status code {response.status_code}")
+
+    # Parse the JSON response
+    content = json.loads(response.content)
+
+    # Extract the gas balance
+    gas_balance = float(content["result"]) / 10**18
+
+    # Return the gas balance
+    return gas_balance
