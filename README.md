@@ -22,10 +22,8 @@ Proprietary and confidential.
 The Infinite Trading Protocol API is designed to provide developers with the tools necessary for creating advanced trading strategies and integrating blockchain technology into their financial applications. The API and Front-end repositories are private for now but after we finish the testing and development and we officially launch the ITP token we will make some components public. For now, this repository will contain general code that might be useful for traders and strategy providers and the brand-kit that might be used by our partners. 
 
 <p align="center">
-  <img src="https://github.com/InfiniteTradingProtocol/infinite-trading-protocol/blob/main/logos/diagram.png" alt="Infinite Trading Protocol Logo" width="200" height="200"/>
+  <img src="https://github.com/InfiniteTradingProtocol/infinite-trading-protocol/blob/main/logos/diagram.png" alt="Infinite Trading Protocol Logo"/>
 </p>
-
-https://github.com/InfiniteTradingProtocol/infinite-trading-protocol/blob/main/logos/diagram.png
 
 ## ITP Token
 
