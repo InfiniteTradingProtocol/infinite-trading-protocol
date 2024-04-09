@@ -20,6 +20,10 @@ The Infinite Trading Protocol API is designed to provide developers with the too
 
 ## ITP Token
 
+<p align="center">
+  <img src="https://github.com/InfiniteTradingProtocol/infinite-trading-protocol/blob/main/logos/ITP200X200.png" alt="Infinite Trading Protocol Logo" width="200" height="200"/>
+</p>
+
 Ticker: ITP
 
 Total Supply: 1 Billion
