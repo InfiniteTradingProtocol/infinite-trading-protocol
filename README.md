@@ -7,7 +7,7 @@
 
 # Infinite Trading Protocol 
 
-Welcome to the official code repository for Infinite Trading Protocol. This repository houses a comprehensive suite of tools designed for advanced financial analysis, data integration, trading bots and messaging functionalities between different networks and protocols. Our codebase extends across various platforms, including dHedge, DeFund, Discord, Yahoo Finance, DexScreener and more, offering a robust toolkit for financial analysts, strategy providers, traders, and developers.
+Welcome to the official code repository for Infinite Trading Protocol. The protocol offers a comprehensive suite of tools designed for advanced financial analysis, data integration, trading bots and messaging functionalities between different networks and protocols. Our codebase extends across various platforms, including dHedge, DeFund, Discord, Yahoo Finance, DexScreener and more, offering a robust toolkit for financial analysts, strategy providers, traders, and developers.
 
 ## Copyright
 
@@ -20,7 +20,7 @@ Proprietary and confidential.
 
 ## Introduction
 
-The Infinite Trading Protocol API is designed to provide developers with the tools necessary for creating advanced trading strategies and integrating blockchain technology into their financial applications. The API and Front-end repositories are private for now but after we finish the testing and development and we officially launch the ITP token we will make some components public. For now, this repository will contain general code that might be useful for traders and strategy providers and the brand-kit that might be used by our partners. 
+The Infinite Trading Protocol API is designed to provide developers with the tools necessary for creating advanced trading strategies and integrating blockchain technology into their financial applications. The API and Front-end repositories are private, but after the testing and development is complete we will make some components public for transparency. For now, this repository will contain general code that might be useful for traders and strategy providers and the brand-kit with our logos and promotional content. 
 
 <p align="center">
   <img src="https://github.com/InfiniteTradingProtocol/infinite-trading-protocol/blob/main/logos/diagram.png" alt="Infinite Trading Protocol Logo"/>
