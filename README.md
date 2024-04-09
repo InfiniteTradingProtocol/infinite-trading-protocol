@@ -3,7 +3,7 @@
 
 # Infinite Trading Protocol 
 
-Welcome to the official code repository for Infinite Trading Protocol. This repository houses a comprehensive suite of tools designed for advanced financial analysis, data integration, trading bots and messaging functionalities between different networks and protocols. Our codebase extends across various platforms, including dHedge, DeFund, Discord, Yahoo Finance, DexScreener and more\t, offering a robust toolkit for financial analysts, strategy providers, traders, and developers.
+Welcome to the official code repository for Infinite Trading Protocol. This repository houses a comprehensive suite of tools designed for advanced financial analysis, data integration, trading bots and messaging functionalities between different networks and protocols. Our codebase extends across various platforms, including dHedge, DeFund, Discord, Yahoo Finance, DexScreener and more, offering a robust toolkit for financial analysts, strategy providers, traders, and developers.
 
 ## Copyright
 
