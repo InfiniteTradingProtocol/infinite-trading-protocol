@@ -1,8 +1,9 @@
 
----
 <p align="center">
-  <img src="https://github.com/InfiniteTradingProtocol/infinite-trading-protocol/blob/main/logos/Infinite_Trading_Protocol.png" alt="Infinite Trading Protocol Logo" width="200" height="200"/>
+  <img src="https://github.com/InfiniteTradingProtocol/infinite-trading-protocol/blob/main/logos/Infinite_Trading_Protocol.png" alt="Infinite Trading Protocol Logo" width="400" height="400"/>
 </p>
+
+---
 
 # Infinite Trading Protocol 
 
@@ -84,11 +85,11 @@ The Infinite Trading Protocol’s DAO plays a pivotal role in maintaining and en
 
 ing the attractiveness of yields within the Velodrome finance ecosystem. A key strategy
 
-involves actively managing the ITP/USDC liquidity pool to ensure competitive yields
+involves actively managing the liquidity pool to ensure competitive yields
 
 and leveraging Velodrome’s unique emissions rewards system. Through strategic brib-
 
-ing, the DAO commits to enhancing the visibility and liquidity of the ITP/USDC pool,
+ing, the DAO commits to enhancing the visibility and liquidity of the ITP pool,
 
 thereby securing a more favorable allocation of Velodrome emissions.
 
