@@ -1,3 +1,5 @@
+#Infinite Trading
+
 require(PerformanceAnalytics)
 require(quantmod)
 require(xts)
