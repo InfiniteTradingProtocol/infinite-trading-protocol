@@ -9,13 +9,6 @@
 
 Welcome to the official code repository for Infinite Trading Protocol. The protocol offers a comprehensive suite of tools designed for advanced financial analysis, data integration, trading bots and messaging functionalities between different networks and protocols. Our codebase extends across various platforms, including dHedge, DeFund, Discord, Yahoo Finance, DexScreener and more, offering a robust toolkit for financial analysts, strategy providers, traders, and developers.
 
-## Copyright
-
-Copyright (c) 2024 Infinite Trading. All rights reserved.
-
-Unauthorized copying of this file, via any medium is strictly prohibited.
-Proprietary and confidential.
-
 ---
 
 ## Introduction
@@ -33,13 +26,9 @@ The Infinite Trading Protocol API is designed to provide developers with the too
 </p>
 
 Ticker: ITP
-
 Total Supply: 1 Billion
-
 Blockchain: Optimism Network
-
 Contract: 0x0a7B751FcDBBAA8BB988B9217ad5Fb5cfe7bf7A0 (Verified ERC20)
-
 DAO ADDRESS
 0xb5dB6e5a301E595B76F40319896a8dbDc277CEfB
 
@@ -96,22 +85,7 @@ thereby securing a more favorable allocation of Velodrome emissions.
 ## Current Product Status
 
 
-Our current product boasts a fully functional API tailored for executing trades across more than 150 diverse exchanges, both centralized and decentralized. This API seamlessly integrates with platforms such as dHEDGE and Defund protocol, showcasing its versatility and adaptability. With over a year of successful operation, our track record is exemplified by the robust performance of our vaults within the dHedge ecosystem. Moreover, our infrastructure includes databases, algorithms, and trading bots that are operational and primed for action. Through our v1 API, multiple managers can execute orders efficiently and our algorithms seamlessly integrate with Toros Finance vaults, offering users the flexibility to engage in both long and short positions.
-
-
-## Upcoming Development:
-
-Moving forward, our focus lies on expanding our capabilities and enhancing user experience. We have identified several key areas for development:
-
-Integrations for Enzyme and Valio: Enhancing compatibility and accessibility across multiple platforms.
-On-chain Data Integration: Incorporating various sources of on-chain data, including the Zapper API, to enrich user insights and decision-making.
-Smart Contract Communication: Establishing direct communication channels with smart contracts to facilitate seamless data retrieval and storage.
-GraphQL Data Fetching: Implementing GraphQL data fetching mechanisms to support diverse crypto projects and streamline data access.
-API System Optimization: Prioritizing the enhancement of our API system to ensure scalability, cost-efficiency, and robust security measures. This includes preparing the infrastructure to handle substantial workloads and sensitive data securely.
-Liquidity Provision and Management: Enabling users to provide liquidity and manage positions on platforms like Uniswap and Velodrome through our API, enhancing trading flexibility.
-Staking Contract Development: Developing and integrating staking contracts to empower users with additional earning opportunities and incentivize participation.
-API Credits Management Infrastructure: Creating a robust infrastructure for managing API credits efficiently, ensuring seamless access and usage for all users.
-Through these planned developments, we are committed to advancing our product to meet the evolving needs of our users and to achieve our ambitious goals. We remain dedicated to transparency and will keep our community informed every step of the way.
+Our current product boasts a fully functional API tailored for executing trades across more than 150 diverse exchanges, both centralized and decentralized. This API seamlessly integrates with platforms such as dHEDGE and Defund protocol, showcasing its versatility and adaptability. With over a year of successful operation, our track record is exemplified by the robust performance of our vaults within the dHedge ecosystem. Moreover, our infrastructure includes databases, algorithms, and trading bots that are operational and production. Through our v1 API, multiple managers can execute orders efficiently and our algorithms seamlessly integrate with Toros Finance vaults, offering users the flexibility to engage in both long and short positions.
 
 
 ## Contributing
@@ -127,3 +101,9 @@ This project is licensed under the terms of the [MIT license](LICENSE).
 ## Contact
 
 For support or any queries, please reach out to admin@infinitetrading.io, telegram: @infinitetradingprotocol, or X: @infinitetradepr
+
+## Copyright
+
+Copyright (c) 2024 Infinite Trading. All rights reserved.
+
+Unauthorized copying of this file, via any medium is strictly prohibited.
