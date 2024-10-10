@@ -43,14 +43,14 @@ interface IStakingGauge {
 
 contract AutoCompoundVault {
     // Token addresses for USDC, ITP, and VELO on Optimism
-    address public usdcToken = 0x7F5c764cBc14f9669B88837ca1490cCa17c31607; // USDC token address
-    address public itpToken = 0xYourITPTokenAddressHere; // ITP token address (replace with actual)
-    address public veloToken = 0xYourVELOTokenAddressHere; // VELO token address (replace with actual)
+    address public usdcToken = 0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85; // USDC token address
+    address public itpToken = 0x0a7B751FcDBBAA8BB988B9217ad5Fb5cfe7bf7A0; // ITP token address (replace with actual)
+    address public veloToken = 0x9560e827aF36c94D2Ac33a39bCE1Fe78631088Db; // VELO token address (replace with actual)
 
     // DEX Router (e.g., Velodrome or 1inch) and liquidity pool addresses
     address public dexRouter = 0x11111112542d85B3EF69AE05771c2dCCff4fAa26; // Velodrome or 1inch router
-    address public liquidityPool = 0xYourLiquidityPoolAddressHere; // ITP-USDC liquidity pool
-    address public stakingGauge = 0xYourStakingGaugeAddressHere; // Velodrome staking gauge
+    address public liquidityPool = 0xB84C932059A49e82C2c1bb96E29D59Ec921998Be; // ITP-USDC liquidity pool
+    address public stakingGauge = 0x571E95563A6798C76144c8C5ed293406Ed81A437; // Velodrome staking gauge
 
     uint256 public totalShares; // Total shares in the vault representing all users' holdings
     mapping(address => uint256) public userShares; // Tracks user's proportional shares in the vault
