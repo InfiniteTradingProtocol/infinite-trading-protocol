@@ -13,7 +13,7 @@ import json
 # Function to fetch price, price change, and liquidity data from DexScreener
 def ds_price(pair, network, exchange, native=False, pricechange=False, liquidity=False):
     
-    # Define base URL for DexScreener API
+    # Define base URL for DexScreener API.
     base_url = "https://api.dexscreener.com/latest/dex/pairs/"
     
     # Set endpoint based on network and pair
