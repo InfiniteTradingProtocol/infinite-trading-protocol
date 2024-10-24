@@ -1,3 +1,6 @@
+// This is a preliminary version of the boost contract, additional testing and features are still needed
+
+
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
