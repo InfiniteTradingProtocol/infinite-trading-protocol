@@ -1,7 +1,3 @@
-// This is a preliminary version of the boost contract, additional testing and features are still needed
-
-
-
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
@@ -62,28 +58,28 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable {
 
     /// @notice Permite a los usuarios depositar tokens LP para hacer staking en tu contrato y en el Gauge correspondiente
   
-        function deposit(uint256 _amount, address lpToken) external nonReentrant {
-            require(_amount > 0, "Cannot deposit 0 tokens");
-            IGauge gauge = gauges[lpToken];
-            require(address(gauge) != address(0), "Gauge not registered for this LP token");
+    function deposit(uint256 _amount, address lpToken) external nonReentrant {
+        require(_amount > 0, "Cannot deposit 0 tokens");
+        IGauge gauge = gauges[lpToken];
+        require(address(gauge) != address(0), "Gauge not registered for this LP token");
 
 
-            // obtener el Gauge correspondiente para este LP token
-            IERC20(lpToken).safeTransferFrom(msg.sender, address(this), _amount);
+        // obtener el Gauge correspondiente para este LP token
+        IERC20(lpToken).safeTransferFrom(msg.sender, address(this), _amount);
 
-            // transferir los LP tokens del usuario a tu contrato booster
-            _updateRewards(msg.sender, lpToken);  // Actualiza las recompensas antes del cambio de balance
+        // transferir los LP tokens del usuario a tu contrato booster
+        _updateRewards(msg.sender, lpToken);  // Actualiza las recompensas antes del cambio de balance
 
-            IERC20(lpToken).safeIncreaseAllowance(address(gauge), _amount);
+        IERC20(lpToken).safeIncreaseAllowance(address(gauge), _amount);
 
-            // realiza el stake de los LP tokens en el contrato Gauge
-            gauge.deposit(_amount);
+        // realiza el stake de los LP tokens en el contrato Gauge
+        gauge.deposit(_amount);
 
-            // actualiza el balance del usuario para este LP token
-            balanceOf[msg.sender][lpToken] += _amount;
+        // actualiza el balance del usuario para este LP token
+        balanceOf[msg.sender][lpToken] += _amount;
 
-            emit Deposit(msg.sender, lpToken, _amount);
-        }
+        emit Deposit(msg.sender, lpToken, _amount);
+    }
 
     /// @notice Permite a los usuarios retirar sus tokens LP y reclamar sus recompensas.
 
@@ -120,14 +116,15 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable {
 
 
     function claimVeloOwner(address _lpToken, address recipient) external onlyOwner nonReentrant {
-    IGauge gauge = gauges[_lpToken];
-    require(address(gauge) != address(0), "Gauge not registered for this LP token");
+        IGauge gauge = gauges[_lpToken];
+        require(address(gauge) != address(0), "Gauge not registered for this LP token");
 
-    uint256 _rewards = gauge.earned(address(this));
-    require(_rewards > 0, "No rewards available");
+        uint256 _rewards = gauge.earned(address(this));
+        require(_rewards > 0, "No rewards available");
 
-    gauge.getReward(address(this));
-    IERC20(veloToken).safeTransfer(recipient, _rewards);
+        gauge.getReward(address(this));
+        IERC20(veloToken).safeTransfer(recipient, _rewards);
+
     }
 
     /**
@@ -149,7 +146,7 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable {
 
     }
 
-        function withdrawITP(uint256 _amount, address _recipient) external onlyOwner nonReentrant {
+    function withdrawITP(uint256 _amount, address _recipient) external onlyOwner nonReentrant {
         require(_amount > 0, "Cannot withdraw 0 tokens");
         require(_amount <= balanceITP, "Insufficient ITP balance in contract");
 
@@ -159,10 +156,32 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable {
 
         }
 
-        function changeItpBalance(uint256 _amount) onlyOwner external  {
+    function changeItpBalance(uint256 _amount) onlyOwner external  {
         require(_amount > 0);
         balanceITP+= balanceITP;
         }
 
+        /**
+         * @notice permite inicializar los gauges
+         */
+
+    function initializeGauges(address[] calldata lpTokens, IGauge[] calldata _gauges) external onlyOwner {
+            
+            require(lpTokens.length == _gauges.length, "Mismatch between LP tokens and gauges");
+            for (uint256 i = 0; i < lpTokens.length; i++) {
+                gauges[lpTokens[i]] = _gauges[i];
+            }
+        }
+
+
+        /**
+         * @notice Permite al owner agregar, actualizar o eliminar un Gauge para un token LP
+         * @param lpToken El address del token LP
+         * @param gauge El address del contrato Gauge correspondiente o address(0) para eliminar
+         */
+    function ArGauge(address lpToken, IGauge gauge) external onlyOwner {
+            require(lpToken != address(0), "Invalid LP token address");
+            gauges[lpToken] = gauge;
+        }
 
 }
