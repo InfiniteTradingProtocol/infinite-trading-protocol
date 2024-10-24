@@ -35,13 +35,14 @@ ds_price <- function(pair, network, exchange, native = FALSE, pricechange = FALS
     "ITP-xOpenX" = "0x44fb5dc428c65576d5fce5298cf1c77ea28cf2dc",
     "ITP-VELO" = "0xc04754f8027abbfe9eea492c9cc78b66946a07d1",
     "ITP-OP" = "0x79f1af622fe2c636a2d946f03a62d1dfc8ca6de4",
+    "ITP-WLD" = "0x1D543E0F4E77Ae517cEf496F3E25938A218C49c9",
     stop("Unsupported pair")
   )
   
   # Construct the full URL for the API request
   url <- paste0(base_url, endpoint, pair_contract)
   response <- GET(url)
-  print(paste0("Querying: ", url))
+  #print(paste0("Querying: ", url))
   
   # Check if the response is successful
   if (response$status_code == 200) {
@@ -62,7 +63,8 @@ ds_price <- function(pair, network, exchange, native = FALSE, pricechange = FALS
     
     # Handle liquidity data
     if (liquidity) {
-      data$pair$liquidity$price <- as.numeric(data$pair$priceUsd)
+      if (pair == "ITP-WLD") { data$pair$liquidity$price <- as.numeric(data$pair$priceUsd)/as.numeric(data$pair$priceNative) }
+      else { data$pair$liquidity$price <- as.numeric(data$pair$priceUsd) }
       return(data$pair$liquidity)
     }
     
@@ -83,37 +85,32 @@ ds_price <- function(pair, network, exchange, native = FALSE, pricechange = FALS
 # Main script to calculate liquidity and ITP incentives
 #####################################################
 
-# List of Liquidity Pairs (LPs)
-lps <- c("ITP-USDC", "ITP-wstETH", "ITP-WBTC", "ITP-DHT", "ITP-xOpenX", "ITP-VELO", "ITP-OP")
-usd_liquidity <- c()
-prices <- c()
-
-# Fetch data for each LP
-for (lp in lps) {
-  liquidity_data <- ds_price(pair = lp, network = "optimism", exchange = "velodromeV2", liquidity = TRUE)
-  usd_liquidity <- c(usd_liquidity, liquidity_data$usd / 2)
-  prices <- c(prices, liquidity_data$price)
-  print(paste("LP:", lp, "Liquidity:", usd_liquidity[length(usd_liquidity)]))
+incentives = function(network,exchange,liquidity_percentage,lps) {
+  usd_liquidity <- c()
+  prices <- c()
+  # Fetch data for each LP
+  for (lp in lps) {
+    liquidity_data <- ds_price(pair = lp, network = network, exchange = exchange, liquidity = TRUE)
+    usd_liquidity <- c(usd_liquidity, liquidity_data$usd / 2)
+    prices <- c(prices, liquidity_data$price)
+  }
+  # Calculate total USD liquidity
+  total_usd_liquidity <- sum(usd_liquidity)
+  print(paste0("Total Liquidity (excluding ITP value): $", total_usd_liquidity))
+  # Calculate weighted average price for ITP
+  weighted_price <- sum(prices * (usd_liquidity / total_usd_liquidity))
+  print(paste0("Weighted ITP Price: $", round(weighted_price,4)))
+  # Calculate total ITP incentives
+  total_incentives <- (total_usd_liquidity * liquidity_percentage) / weighted_price
+  print(paste("Total Weekly ITP Incentives:", total_incentives, "ITP"))
+  # Calculate and display incentives for each pool
+  print("Incentives for each pool this epoch:")
+  for (i in seq_along(lps)) {
+    percentage=(usd_liquidity[i] / total_usd_liquidity)
+    pool_incentives <- total_incentives * (usd_liquidity[i] / total_usd_liquidity)
+    output = paste0("Pool: ", lps[i], " / Incentives: ", pool_incentives, " ITP / USD Liquidity: ",usd_liquidity[i]," (",round(percentage*100,2),"%)")
+    print(output)
+  }
 }
 
-# Calculate total USD liquidity
-total_usd_liquidity <- sum(usd_liquidity)
-print(paste("Total USD Liquidity (excluding ITP value):", total_usd_liquidity))
-
-# Calculate weighted average price for ITP
-weighted_price <- sum(prices * (usd_liquidity / total_usd_liquidity))
-print(paste("Weighted ITP Price:", weighted_price))
-
-# Set percentage of liquidity for incentives
-percentage <- 0.02
-
-# Calculate total ITP incentives
-total_incentives <- (total_usd_liquidity * percentage) / weighted_price
-print(paste("Total Weekly ITP Incentives:", total_incentives, "ITP"))
-
-# Calculate and display incentives for each pool
-print("Incentives for each pool this epoch:")
-for (i in seq_along(lps)) {
-  pool_incentives <- total_incentives * (usd_liquidity[i] / total_usd_liquidity)
-  print(paste(lps[i], ":", pool_incentives, "ITP"))
-}
+incentives(network="optimism",exchange="velodromeV2",liquidity_percentage=0.015,lps= c("ITP-VELO","ITP-wstETH","ITP-USDC", "ITP-wstETH", "ITP-WBTC", "ITP-DHT", "ITP-OP","ITP-xOpenX","ITP-WLD"))
