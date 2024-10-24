@@ -102,7 +102,7 @@ incentives = function(network,exchange,liquidity_percentage,lps) {
   print(paste0("Weighted ITP Price: $", round(weighted_price,4)))
   # Calculate total ITP incentives
   total_incentives <- (total_usd_liquidity * liquidity_percentage) / weighted_price
-  print(paste0("Total Weekly ITP Incentives:", round(total_incentives,2), "ITP ($", format(round(total_incentives*weighted_price,2), big.mark = ",", scientific = FALSE),")"))
+  print(paste0("Total Weekly ITP Incentives: ", format(round(total_incentives,2), big.mark = ",", scientific = FALSE), " ITP ($", format(round(total_incentives*weighted_price,2), big.mark = ",", scientific = FALSE),")"))
   # Calculate and display incentives for each pool
   print("Incentives for each pool this epoch:")
   for (i in seq_along(lps)) {
