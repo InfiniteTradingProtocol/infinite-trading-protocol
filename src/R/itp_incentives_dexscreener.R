@@ -96,21 +96,20 @@ incentives = function(network,exchange,liquidity_percentage,lps) {
   }
   # Calculate total USD liquidity
   total_usd_liquidity <- sum(usd_liquidity)
-  print(paste0("Total Liquidity (excluding ITP value): $", total_usd_liquidity))
+  print(paste0("Total Liquidity (excluding ITP value): $", format(round(total_usd_liquidity,2), big.mark = ",", scientific = FALSE)))
   # Calculate weighted average price for ITP
   weighted_price <- sum(prices * (usd_liquidity / total_usd_liquidity))
   print(paste0("Weighted ITP Price: $", round(weighted_price,4)))
   # Calculate total ITP incentives
   total_incentives <- (total_usd_liquidity * liquidity_percentage) / weighted_price
-  print(paste("Total Weekly ITP Incentives:", total_incentives, "ITP"))
+  print(paste0("Total Weekly ITP Incentives:", round(total_incentives,2), "ITP ($", format(round(total_incentives*weighted_price,2), big.mark = ",", scientific = FALSE),")"))
   # Calculate and display incentives for each pool
   print("Incentives for each pool this epoch:")
   for (i in seq_along(lps)) {
     percentage=(usd_liquidity[i] / total_usd_liquidity)
     pool_incentives <- total_incentives * (usd_liquidity[i] / total_usd_liquidity)
-    output = paste0("Pool: ", lps[i], " / Incentives: ", pool_incentives, " ITP / USD Liquidity: ",usd_liquidity[i]," (",round(percentage*100,2),"%)")
+    output = paste0("Pool: ", lps[i], " / Incentives: ", format(round(pool_incentives,2), big.mark = ",", scientific = FALSE), " ITP / Liquidity: $",format(round(usd_liquidity[i],2), big.mark = ",", scientific = FALSE)," (",round(percentage*100,2),"%)")
     print(output)
   }
 }
-
 incentives(network="optimism",exchange="velodromeV2",liquidity_percentage=0.015,lps= c("ITP-VELO","ITP-wstETH","ITP-USDC", "ITP-wstETH", "ITP-WBTC", "ITP-DHT", "ITP-OP","ITP-xOpenX","ITP-WLD"))
