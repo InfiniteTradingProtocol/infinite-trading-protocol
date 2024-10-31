@@ -249,16 +249,6 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable(msg.sender) {
         return balanceOf[user][lpToken];
     }
 
-    
-    function obtenerrecompensas(address lpToken) external {
-        IGauge gauge = gauges[lpToken];
-        require(address(gauge) != address(0), "Gauge not registered for this LP token");
-
-        gauge.getReward(address(this));
-        
-    }
-
-
 
     function setRouter(address _router) external onlyOwner {
         require(_router != address(0), "Invalid router address");
