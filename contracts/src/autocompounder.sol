@@ -1,6 +1,7 @@
 
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
+import {console} from "forge-std/src/console.sol";
 
 interface IERC20 {
     function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
@@ -10,13 +11,43 @@ interface IERC20 {
 }
 
 interface IRouter {
+    struct Route {
+        address from;
+        address to;
+        bool stable;
+        address factory;
+    }
+    
     function swapExactTokensForTokens(
         uint256 amountIn,
         uint256 amountOutMin,
-        address[] calldata path,
+        Route[] calldata routes,
         address to,
         uint256 deadline
     ) external returns (uint256[] memory amounts);
+
+    function addLiquidity(
+        address tokenA,
+        address tokenB,
+        bool stable,
+        uint256 amountADesired,
+        uint256 amountBDesired,
+        uint256 amountAMin,
+        uint256 amountBMin,
+        address to,
+        uint256 deadline
+    ) external returns (uint256 amountA, uint256 amountB, uint256 liquidity);
+
+    function removeLiquidity(
+        address tokenA,
+        address tokenB,
+        bool stable,
+        uint256 liquidity,
+        uint256 amountAMin,
+        uint256 amountBMin,
+        address to,
+        uint256 deadline
+    ) external returns (uint256 amountA, uint256 amountB);
 }
 
 interface ILiquidityPool {
@@ -35,7 +66,7 @@ interface ILiquidityPool {
 }
 
 interface IStakingGauge {
-    function stake(uint256 amount) external;
+    function deposit(uint256 amount) external;
     function withdraw(uint256 amount) external;
     function getReward() external;
     function balanceOf(address account) external view returns (uint256);
@@ -48,7 +79,7 @@ contract AutoCompoundVault {
     address public veloToken = 0x9560e827aF36c94D2Ac33a39bCE1Fe78631088Db; // VELO token address (replace with actual)
 
     // DEX Router (e.g., Velodrome or 1inch) and liquidity pool addresses
-    address public dexRouter = 0x11111112542d85B3EF69AE05771c2dCCff4fAa26; // Velodrome or 1inch router
+    address public dexRouter = 0xa062aE8A9c5e11aaA026fc2670B0D65cCc8B2858; // Velodrome or 1inch router
     address public liquidityPool = 0xB84C932059A49e82C2c1bb96E29D59Ec921998Be; // ITP-USDC liquidity pool
     address public stakingGauge = 0x571E95563A6798C76144c8C5ed293406Ed81A437; // Velodrome staking gauge
 
@@ -78,7 +109,9 @@ contract AutoCompoundVault {
 
         // Swap half of the USDC to ITP
         uint256 halfUsdc = usdcAmount / 2;
+        console.log("halfUsdc: ", halfUsdc);
         uint256 itpAmount = swapUSDCForITP(halfUsdc);
+        console.log("itpAmount: ", itpAmount);
 
         // Add liquidity to the ITP-USDC pool
         uint256 liquidity = addLiquidity(halfUsdc, itpAmount);
@@ -145,16 +178,21 @@ contract AutoCompoundVault {
 
     // Internal function to swap USDC for ITP using the DEX router
     function swapUSDCForITP(uint256 usdcAmount) internal returns (uint256 itpAmount) {
-        address[] memory path = new address[](2);
-        path[0] = usdcToken;
-        path[1] = itpToken;
+        IRouter.Route[] memory routes = new IRouter.Route[](1);
+        
+        routes[0] = IRouter.Route({
+            from: usdcToken,
+            to: itpToken,
+            stable: false,
+            factory: address(0)
+        });
 
         IERC20(usdcToken).approve(dexRouter, usdcAmount);
 
         uint256[] memory amountsOut = IRouter(dexRouter).swapExactTokensForTokens(
             usdcAmount,
             0, // Accept any amount of ITP (adjust for slippage)
-            path,
+            routes,
             address(this),
             block.timestamp + 600
         );
@@ -164,16 +202,21 @@ contract AutoCompoundVault {
 
     // Internal function to swap ITP for USDC using the DEX router
     function swapITPForUSDC(uint256 itpAmount) internal returns (uint256 usdcAmount) {
-        address[] memory path = new address[](2);
-        path[0] = itpToken;
-        path[1] = usdcToken;
+        IRouter.Route[] memory routes = new IRouter.Route[](1);
+        
+        routes[0] = IRouter.Route({
+            from: itpToken,
+            to: usdcToken,
+            stable: false,
+            factory: address(0)
+        });
 
         IERC20(itpToken).approve(dexRouter, itpAmount);
 
         uint256[] memory amountsOut = IRouter(dexRouter).swapExactTokensForTokens(
             itpAmount,
             0, // Accept any amount of USDC (adjust for slippage)
-            path,
+            routes,
             address(this),
             block.timestamp + 600
         );
@@ -183,16 +226,21 @@ contract AutoCompoundVault {
 
     // Internal function to swap VELO for USDC
     function swapVELOForUSDC(uint256 veloAmount) internal returns (uint256 usdcAmount) {
-        address[] memory path = new address[](2);
-        path[0] = veloToken;
-        path[1] = usdcToken;
+        IRouter.Route[] memory routes = new IRouter.Route[](1);
+        
+        routes[0] = IRouter.Route({
+            from: veloToken,
+            to: usdcToken,
+            stable: false,
+            factory: address(0)
+        });
 
         IERC20(veloToken).approve(dexRouter, veloAmount);
 
         uint256[] memory amountsOut = IRouter(dexRouter).swapExactTokensForTokens(
             veloAmount,
             0, // Accept any amount of USDC
-            path,
+            routes,
             address(this),
             block.timestamp + 600
         );
@@ -202,16 +250,21 @@ contract AutoCompoundVault {
 
     // Internal function to swap VELO for ITP
     function swapVELOForITP(uint256 veloAmount) internal returns (uint256 itpAmount) {
-        address[] memory path = new address[](2);
-        path[0] = veloToken;
-        path[1] = itpToken;
+        IRouter.Route[] memory routes = new IRouter.Route[](1);
+        
+        routes[0] = IRouter.Route({
+            from: veloToken,
+            to: itpToken,
+            stable: false,
+            factory: address(0)
+        });
 
         IERC20(veloToken).approve(dexRouter, veloAmount);
 
         uint256[] memory amountsOut = IRouter(dexRouter).swapExactTokensForTokens(
             veloAmount,
             0, // Accept any amount of ITP
-            path,
+            routes,
             address(this),
             block.timestamp + 600
         );
@@ -221,12 +274,17 @@ contract AutoCompoundVault {
 
     // Internal function to add liquidity to the ITP-USDC pool
     function addLiquidity(uint256 usdcAmount, uint256 itpAmount) internal returns (uint256 liquidity) {
-        IERC20(usdcToken).approve(liquidityPool, usdcAmount);
-        IERC20(itpToken).approve(liquidityPool, itpAmount);
+        IERC20(usdcToken).approve(dexRouter, usdcAmount);
+        IERC20(itpToken).approve(dexRouter, itpAmount);
 
-        return ILiquidityPool(liquidityPool).addLiquidity(
+        (, , liquidity) = IRouter(dexRouter).addLiquidity(
+            usdcToken,
+            itpToken,
+            false,
             usdcAmount,
             itpAmount,
+            0,
+            0,
             address(this),
             block.timestamp + 600
         );
@@ -235,7 +293,7 @@ contract AutoCompoundVault {
     // Internal function to stake LP tokens in the Velodrome gauge
     function stakeInGauge(uint256 liquidity) internal {
         IERC20(liquidityPool).approve(stakingGauge, liquidity);
-        IStakingGauge(stakingGauge).stake(liquidity);
+        IStakingGauge(stakingGauge).deposit(liquidity);
     }
 
     // Helper function to calculate the total vault value (total liquidity + rewards)
