@@ -186,6 +186,8 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable(msg.sender) {
         require(address(gauge) != address(0), "Gauge not registered for this LP");
         require(balanceOf[msg.sender][lpToken] >= _amount, "Insufficient balance");
 
+        gauge.withdraw(_amount);
+
         _updateRewards(msg.sender, lpToken);
         balanceOf[msg.sender][lpToken] -= _amount;
 
