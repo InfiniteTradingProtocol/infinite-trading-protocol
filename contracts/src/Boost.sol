@@ -141,7 +141,7 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable(msg.sender) {
 
     /**
      * @notice Configura el porcentaje de comisión para retiros
-     * @param newFeePercentage Nuevo porcentaje de comisión (en base 1000)
+     * @param newFeePercentage Nuevo porcentaje de comisión (en base 100)
      */
     function setFeePercentage(uint256 newFeePercentage) external onlyOwner {
         feePercentage = newFeePercentage;
@@ -187,11 +187,12 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable(msg.sender) {
         require(balanceOf[msg.sender][lpToken] >= _amount, "Insufficient balance");
 
         gauge.withdraw(_amount);
-
         _updateRewards(msg.sender, lpToken);
         balanceOf[msg.sender][lpToken] -= _amount;
 
-        uint256 fee = (_amount * feePercentage) / 1000;
+        uint256 fee = (_amount * feePercentage) / 100;
+        lpFee[lpToken]+=fee;
+        
         uint256 amount = _amount - fee;
         IERC20(lpToken).safeTransfer(msg.sender, amount);
 
@@ -264,4 +265,3 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable(msg.sender) {
 
 
 }
-
