@@ -20,7 +20,7 @@ interface VeloOracle {
     function getManyRatesWithConnectors(uint8 src_len, IERC20[] memory connectors) external view returns (uint256[] memory rates);
 }
 
-contract BoosterVeloLp is ReentrancyGuard, Ownable(msg.sender) {
+contract BoosterVeloLp is ReentrancyGuard, Ownable {
     using SafeERC20 for IERC20;
 
     // declaracion de variables publicas del contrato
@@ -54,7 +54,7 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable(msg.sender) {
      * @param _router direccion del contrato Velodrome Router
      * @param _oracle direccion del contrato del oracle
      */
-    constructor(address _itpToken, address _veloToken, address _router, address _oracle) {
+    constructor(address _itpToken, address _veloToken, address _router, address _oracle, address _owner) Ownable (_owner) {
         itpToken = IERC20(_itpToken);
         veloToken = IERC20(_veloToken);
         router = IVelodromeRouter(_router); 
@@ -264,5 +264,6 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable(msg.sender) {
         rewards[_account][lpToken] = earned(_account, lpToken);  
         userRewardPerTokenPaid[_account][lpToken] = rewardPerTokenFromGauge;  
     }
+
 
 }
