@@ -30,13 +30,14 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable {
     VeloOracle public oracle;
 
     uint256 public feePercentage = 10;     
-    uint256 public boostPercentage = 200;
+    mapping(address => uint256) public boostPercentage;
 
     // mapeos de balances y recompensas por usuario y LP
     mapping(address => mapping(address => uint256)) public balanceOf;  
     mapping(address => mapping(address => uint256)) public userRewardPerTokenPaid;  
     mapping(address => mapping(address => uint256)) public rewards;
     mapping(address => uint256) public lpFee;
+
 
     // mapeo para asociar LPs con contratos Gauge
     mapping(address => IGauge) public gauges;
@@ -69,7 +70,7 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable {
     /**
      * @notice Reclama las recompensas VELO acumuladas en el gauge y las envia a una direccion especifica 
      */
-    function claimVeloOwner(address _lpToken, address recipient) external onlyOwner nonReentrant {
+    function claimVeloOwner(address _lpToken) external onlyOwner nonReentrant {
         IGauge gauge = gauges[_lpToken];
         require(address(gauge) != address(0), "Gauge not registered for this LP");
 
@@ -77,13 +78,13 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable {
         require(_rewards > 0, "No rewards available");
 
         gauge.getReward(address(this));
-        IERC20(veloToken).safeTransfer(recipient, _rewards);
+        IERC20(veloToken).safeTransfer(msg.sender, _rewards);
     }
 
     /**
      * @notice Recupera comisiones acumuladas de un LP y las envia a una address en especifico
      */
-    function getLpFee(address _lpToken, address recipient, uint256 amount) external onlyOwner nonReentrant {
+    function getLpFee(address _lpToken, uint256 amount) external onlyOwner nonReentrant {
         require(amount <= lpFee[_lpToken], "Insufficient LP fee balance");
 
         IGauge gauge = gauges[_lpToken];
@@ -91,18 +92,18 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable {
 
         gauge.withdraw(amount);
         lpFee[_lpToken] -= amount;
-        IERC20(_lpToken).safeTransfer(recipient, amount);
+        IERC20(_lpToken).safeTransfer(msg.sender, amount);
     }
 
     /**
      * @notice Retira tokens ITP del contrato
      */
-    function withdrawITP(uint256 _amount, address _recipient) external onlyOwner nonReentrant {
+    function withdrawITP(uint256 _amount) external onlyOwner nonReentrant {
         require(_amount > 0, "Cannot withdraw 0 tokens");
         uint256 balanceItp = itpToken.balanceOf(address(this));
         require(_amount <= balanceItp, "Insufficient ITP balance in contract");
 
-        itpToken.safeTransfer(_recipient, _amount);
+        itpToken.safeTransfer(msg.sender, _amount);
     }
 
     /**
@@ -116,10 +117,9 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable {
     }
 
     /**
-     * @notice Agrega un nuevo contrato Gauge para un LP
+     * @notice Agrega un nuevo contrato Gauge para un Lp o eliminar
      */
     function AddGauge(address lpToken, IGauge gauge) external onlyOwner {
-        require(lpToken != address(0), "Invalid LP address");
         gauges[lpToken] = gauge;
     }
 
@@ -143,7 +143,7 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable {
      * @notice Configura el porcentaje de comisión para retiros
      * @param newFeePercentage Nuevo porcentaje de comisión (en base 1000)
      */
-    function setFeePercentage(uint256 newFeePercentage) external onlyOwner {
+    function setFeePercentage(uint256 newFeePercentage ) external onlyOwner {
         feePercentage = newFeePercentage;
     }
 
@@ -151,9 +151,11 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable {
      * @notice Configura el porcentaje de boost aplicado a las recompensas
      * @param newBoostPercentage Nuevo porcentaje de boost (en base 1000)
      */
-    function setBoostPercentage(uint256 newBoostPercentage) external onlyOwner {
-        boostPercentage = newBoostPercentage;
-    }
+    function setBoostPercentage(uint256 newBoostPercentage, address _lpToken) external onlyOwner {
+        IGauge gauge = gauges[_lpToken];
+        require(address(gauge) != address(0), "Gauge not registered for this LP");
+        boostPercentage[_lpToken] = newBoostPercentage;
+        }
 
 
        ///////////////////////////////////FUNCIONES PARA USUARIOS ///////////////////////////////////
@@ -186,10 +188,10 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable {
         require(address(gauge) != address(0), "Gauge not registered for this LP");
         require(balanceOf[msg.sender][lpToken] >= _amount, "Insufficient balance");
 
-        gauge.withdraw(_amount);
         _updateRewards(msg.sender, lpToken);
         balanceOf[msg.sender][lpToken] -= _amount;
 
+        gauge.withdraw(_amount);
         uint256 fee = (_amount * feePercentage) / 1000;
         lpFee[lpToken]+=fee;
         
@@ -198,7 +200,7 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable {
 
         uint256 _rewards = rewards[msg.sender][lpToken];
         if (_rewards > 0) {
-            uint256 boostreward = rewardboost(_rewards);
+            uint256 boostreward = rewardboost(_rewards, lpToken);
             rewards[msg.sender][lpToken] = 0;
             itpToken.safeTransfer(msg.sender, boostreward);
         }
@@ -228,6 +230,18 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable {
         return balanceOf[user][lpToken];
     }
 
+    /**
+     * @notice devuelve las rewards en itp de cada  usuario para cada lp especifico 
+     */
+    function earnedItp(address _acount, address _lpToken) public view returns (uint256){
+        IGauge gauge = gauges[_lpToken];  
+        require(address(gauge) != address(0), "Gauge not registered for this LP");
+
+       uint256 _rewardVelo= earned(_acount,_lpToken);
+       uint256 _rewardItp= rewardboost(_rewardVelo, _lpToken);
+       return _rewardItp;
+
+    }
 
        ///////////////////////////////////FUNCIONES INTERNAS/////////////////////////////////////////
 
@@ -235,7 +249,7 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable {
      * @notice Calcula las recompensas con boost adicional
      * @dev Esta funcion aplica un boost sobre las recompensas en VELO utilizando el Oracle y las tasas de los conectores.
      */
-        function rewardboost(uint256 _veloAmount) internal view returns (uint256 ) {
+        function rewardboost(uint256 _veloAmount , address _lpToken) internal view returns (uint256 ) {
             
             IERC20[] memory connectors = new IERC20[](2) ;
             connectors[0] = IERC20(0x9560e827aF36c94D2Ac33a39bCE1Fe78631088Db); 
@@ -245,7 +259,8 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable {
             
             // aplica la tasa de conversion obtenida para calcular el valor final con boost
             uint256 baseValor = (_veloAmount * rates[0]) / 10**18; 
-            uint256 boostedValor = (baseValor * (1000 + boostPercentage)) / 1000;
+            uint _boostPercentage= boostPercentage[_lpToken];
+            uint256 boostedValor = (baseValor * (1000 + _boostPercentage)) / 1000;
 
 
             return boostedValor;
@@ -267,3 +282,4 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable {
 
 
 }
+
