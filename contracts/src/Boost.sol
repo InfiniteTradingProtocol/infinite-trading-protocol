@@ -119,8 +119,9 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable {
     /**
      * @notice Agrega un nuevo contrato Gauge para un Lp o eliminar
      */
-    function AddGauge(address lpToken, IGauge gauge) external onlyOwner {
+    function AddGauge(address lpToken, IGauge gauge, uint256 newBoostPercentage) external onlyOwner {
         gauges[lpToken] = gauge;
+        boostPercentage[lpToken] = newBoostPercentage;
     }
 
     /**
@@ -243,6 +244,24 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable {
 
     }
 
+
+     /**
+     * @notice muestra el BoostPercentage de un lp especifico
+     */
+    function viewBoostPercentage(address _lpToken) external  view returns (uint256) {
+        IGauge gauge= gauges[_lpToken];
+        require(address(gauge) != address(0), "Gauge not registered for this LP");
+        return boostPercentage[_lpToken];
+    }
+
+
+     /**
+     * @notice verifica si el pool esta activo 
+     */
+    function isActivePool(address _lpToken) external  view returns (bool) {
+    return address(gauges[_lpToken]) != address(0);
+    }
+
        ///////////////////////////////////FUNCIONES INTERNAS/////////////////////////////////////////
 
         /**
@@ -281,5 +300,6 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable {
     }
 
 
-}
+    
 
+}
