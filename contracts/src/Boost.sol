@@ -119,9 +119,10 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable {
     /**
      * @notice Agrega un nuevo contrato Gauge para un Lp o eliminar
      */
-    function AddGauge(address lpToken, IGauge gauge, uint256 newBoostPercentage) external onlyOwner {
+    function AddGauge(address lpToken, IGauge gauge, uint256 feeBoostPercentage) external onlyOwner {
+        require(feeBoostPercentage <= 10, "Fee percentage cannot exceed 1%");
         gauges[lpToken] = gauge;
-        boostPercentage[lpToken] = newBoostPercentage;
+        boostPercentage[lpToken] = feeBoostPercentage;
     }
 
     /**
@@ -145,6 +146,7 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable {
      * @param newFeePercentage Nuevo porcentaje de comisión (en base 1000)
      */
     function setFeePercentage(uint256 newFeePercentage ) external onlyOwner {
+        require(newFeePercentage <= 10, "Fee percentage cannot exceed 1%");
         feePercentage = newFeePercentage;
     }
 
