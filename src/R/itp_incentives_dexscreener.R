@@ -112,4 +112,4 @@ incentives = function(network,exchange,liquidity_percentage,lps) {
     print(output)
   }
 }
-incentives(network="optimism",exchange="velodromeV2",liquidity_percentage=0.015,lps= c("ITP-VELO","ITP-wstETH","ITP-USDC", "ITP-wstETH", "ITP-WBTC", "ITP-DHT", "ITP-OP","ITP-xOpenX","ITP-WLD"))
+incentives(network="optimism",exchange="velodromeV2",liquidity_percentage=0.015,lps= c("ITP-VELO","ITP-wstETH","ITP-USDC", "ITP-WBTC", "ITP-DHT", "ITP-OP","ITP-WLD"))
