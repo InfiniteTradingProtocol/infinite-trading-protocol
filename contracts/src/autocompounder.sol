@@ -8,6 +8,7 @@ interface IERC20 {
     function transfer(address recipient, uint256 amount) external returns (bool);
     function approve(address spender, uint256 amount) external returns (bool);
     function balanceOf(address account) external view returns (uint256);
+    function decimals() external view returns (uint8);
 }
 
 interface IRouter {
@@ -51,6 +52,8 @@ interface IRouter {
 }
 
 interface ILiquidityPool {
+    function approve(address spender, uint256 amount) external returns (bool);
+    
     function addLiquidity(
         uint256 amountA,
         uint256 amountB,
@@ -63,12 +66,16 @@ interface ILiquidityPool {
         address to,
         uint256 deadline
     ) external returns (uint256 amountA, uint256 amountB);
+
+    function getReserves() external view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast);
+
+    function token0() external view returns (address);
 }
 
 interface IStakingGauge {
     function deposit(uint256 amount) external;
     function withdraw(uint256 amount) external;
-    function getReward() external;
+    function getReward(address account) external;
     function balanceOf(address account) external view returns (uint256);
 }
 
@@ -121,6 +128,7 @@ contract AutoCompoundVault {
 
         // Calculate the user's share of the vault based on their contribution to the total pool
         uint256 shares = (totalShares == 0) ? liquidity : (liquidity * totalShares) / getTotalVaultValue();
+        console.log("shares: ", shares);
         totalShares += shares;
         userShares[msg.sender] += shares;
     }
@@ -136,11 +144,7 @@ contract AutoCompoundVault {
         IStakingGauge(stakingGauge).withdraw(liquidity);
 
         // Remove liquidity from the ITP-USDC pool and get USDC and ITP back
-        (uint256 usdcAmount, uint256 itpAmount) = ILiquidityPool(liquidityPool).removeLiquidity(
-            liquidity,
-            address(this),
-            block.timestamp + 600
-        );
+        (uint256 usdcAmount, uint256 itpAmount) = removeLiquidity(liquidity);
 
         // Swap the ITP back to USDC
         uint256 usdcFromITP = swapITPForUSDC(itpAmount);
@@ -156,24 +160,46 @@ contract AutoCompoundVault {
     // Auto-compound function to claim rewards and reinvest them in the vault (invoked by Chainlink Keeper)
     function autoCompound() external onlyKeeper {
         // Claim VELO rewards from the staking gauge
-        IStakingGauge(stakingGauge).getReward();
+        IStakingGauge(stakingGauge).getReward(address(this));
 
         uint256 veloBalance = IERC20(veloToken).balanceOf(address(this));
+        console.log("autoCompound(): veloBalance - ", veloBalance);
         if (veloBalance > 0) {
             // Swap VELO rewards into USDC and ITP
-            uint256 halfVelo = veloBalance / 2;
-            uint256 usdcAmount = swapVELOForUSDC(halfVelo);
-            uint256 itpAmount = swapVELOForITP(halfVelo);
+            (uint256 amountUsdc, uint256 amountItp) = getLiquiditySplitAmount(usdcToken, itpToken, veloBalance);
+            uint256 usdcAmount = swapVELOForUSDC(amountUsdc);
+            uint256 itpAmount = swapVELOForITP(amountItp);
 
             // Add liquidity to the ITP-USDC pool
             uint256 liquidity = addLiquidity(usdcAmount, itpAmount);
-
+            console.log("autoCompound(): added liquidity - ", liquidity);
+            
             // Stake the new LP tokens back in the staking gauge
             stakeInGauge(liquidity);
 
             // No change to shares, rewards are auto-compounded back into the pool
             // Each user's shares automatically reflect their new proportion of the pool
         }
+    }
+
+    function getLiquiditySplitAmount(address tokenB, address tokenC, uint256 amountA) internal view returns (uint256 amountToSwapB, uint256 amountToSwapC) {
+        uint8 decimalsB = IERC20(tokenB).decimals();
+        uint8 decimalsC = IERC20(tokenC).decimals();
+
+        (uint112 reserve0, uint112 reserve1, ) = ILiquidityPool(liquidityPool).getReserves();
+
+        uint256 priceBtoC = ILiquidityPool(liquidityPool).token0() == tokenB ? (uint256(reserve1) * 1e18) / uint256(reserve0) : (uint256(reserve0) * 1e18) / uint256(reserve1);
+
+        uint256 adjustedPriceBtoC;
+
+        if (decimalsB >= decimalsC) {
+            adjustedPriceBtoC = priceBtoC * (10**(decimalsB - decimalsC));
+        } else {
+            adjustedPriceBtoC = priceBtoC / (10**(decimalsC - decimalsB));
+        }
+
+        amountToSwapB = (amountA * adjustedPriceBtoC) / (adjustedPriceBtoC + 1e18); // Amount to convert to B
+        amountToSwapC = amountA - amountToSwapB;
     }
 
     // Internal function to swap USDC for ITP using the DEX router
@@ -290,6 +316,22 @@ contract AutoCompoundVault {
         );
     }
 
+    // Internal function to remove liquidity to the ITP-USDC pool
+    function removeLiquidity(uint256 liquidity) internal returns (uint256 amountA, uint256 amountB) {
+        ILiquidityPool(liquidityPool).approve(dexRouter, liquidity);
+
+        (amountA, amountB) = IRouter(dexRouter).removeLiquidity(
+            usdcToken,
+            itpToken,
+            false,
+            liquidity,
+            0,
+            0,
+            address(this),
+            block.timestamp + 600
+        );
+    }
+
     // Internal function to stake LP tokens in the Velodrome gauge
     function stakeInGauge(uint256 liquidity) internal {
         IERC20(liquidityPool).approve(stakingGauge, liquidity);
@@ -300,9 +342,6 @@ contract AutoCompoundVault {
     function getTotalVaultValue() public view returns (uint256) {
         // Get the total liquidity staked in the gauge (representing the vault's value)
         uint256 stakedLiquidity = IStakingGauge(stakingGauge).balanceOf(address(this));
-
-        // Add any unclaimed VELO rewards (converted to their value in the pool) or other assets
-        uint256 unclaimedVELO = IERC20(veloToken).balanceOf(address(this)); 
 
         // Calculate the total vault value by adding staked liquidity and rewards (adjust to account for LP token value)
         return stakedLiquidity; // Adjust as needed to reflect rewards

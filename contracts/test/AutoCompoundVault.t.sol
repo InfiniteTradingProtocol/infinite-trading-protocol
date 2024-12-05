@@ -23,7 +23,7 @@ contract AutoCompoundVaultTest is Test {
     address public userA = address(0xacD03D601e5bB1B275Bb94076fF46ED9D753435A); // Whale address
 
     function setUp() public {
-        autoCompoundVault = new AutoCompoundVault(address(this));
+        autoCompoundVault = new AutoCompoundVault(userA);
     }
 
     function test_Deposit() public {
@@ -33,6 +33,33 @@ contract AutoCompoundVaultTest is Test {
         console.log("userA usdc balance: ", usdcToken.balanceOf(userA));
         usdcToken.approve(address(autoCompoundVault), depositAmount);
         autoCompoundVault.deposit(depositAmount);
+        vm.stopPrank();
+    }
+
+    function test_Withdraw() public {
+        vm.startPrank(userA);
+
+        uint256 depositAmount = 10**2 * 10**6;
+        console.log("userA usdc balance: ", usdcToken.balanceOf(userA));
+        usdcToken.approve(address(autoCompoundVault), depositAmount);
+        autoCompoundVault.deposit(depositAmount);
+
+        autoCompoundVault.withdraw(108684712301638);
+
+        vm.stopPrank();
+    }
+
+    function test_Autocompound() public {
+        vm.startPrank(userA);
+
+        uint256 depositAmount = 10**2 * 10**6;
+        console.log("userA usdc balance: ", usdcToken.balanceOf(userA));
+        usdcToken.approve(address(autoCompoundVault), depositAmount);
+        autoCompoundVault.deposit(depositAmount);
+
+        vm.warp(block.timestamp + 1 days);
+        autoCompoundVault.autoCompound();
+
         vm.stopPrank();
     }
 }
