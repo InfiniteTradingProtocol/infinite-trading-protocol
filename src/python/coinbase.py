@@ -1,6 +1,6 @@
 """
 Author: etherpilled
-Copyright (c) Infinite Trading Protocol
+Infinite Trading Protocol
 
 Licensed under the MIT License. You may use, distribute, and modify this code under the terms of the MIT license.
 
