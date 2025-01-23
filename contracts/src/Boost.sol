@@ -4,6 +4,7 @@ pragma solidity ^0.8.19;
 import "../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import "../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
+import "../lib/openzeppelin-contracts/contracts/utils/Pausable.sol";
 import "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import {IGauge} from "./interfaces/IGauge.sol"; 
 
@@ -20,7 +21,7 @@ interface VeloOracle {
     function getManyRatesWithConnectors(uint8 src_len, IERC20[] memory connectors) external view returns (uint256[] memory rates);
 }
 
-contract BoosterVeloLp is ReentrancyGuard, Ownable {
+contract BoosterVeloLp is ReentrancyGuard, Ownable, Pausable {
     using SafeERC20 for IERC20;
 
     // declaracion de variables publicas del contrato
@@ -43,10 +44,14 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable {
     // mapeo para asociar LPs con contratos Gauge
     mapping(address => IGauge) public gauges;
 
+    address[] public lpTokens;
+
+
+
     // evento usuarios
     event Deposit(address indexed user, address indexed lpToken, uint256 amount);
     event Withdraw(address indexed user, address indexed lpToken, uint256 amount);
-    event ClaimRewards(address indexed user, address indexed lpToken, uint256 reward);
+    event ClaimRewardsUser(address indexed user, address indexed lpToken, uint256 reward);
 
     // eventos relacionados con configuracion
     event FeePercentageUpdated(uint256 newFeePercentage);
@@ -56,8 +61,15 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable {
     event GaugeAdded(address indexed lpToken, address indexed gauge, uint256 feeBoostPercentage);
     event GaugeRemoved(address indexed lpToken);
 
+    //eventos relacionados al sistema de pausa
+
+    event EmergencyWithdraw(address indexed user, address indexed lpToken, uint256 amount);
+    event GlobalPause(address indexed owner);
+    event GlobalUnPaused(address indexed owner);
+
+
     // eventos relacionados con acciones de usuario
-    event ClaimRewards(address indexed user, address indexed lpToken, uint256 veloRewards, uint256 itpRewards);
+    event ClaimRewards(address indexed user, address indexed lpToken, uint256 veloRewards);
 
     // eventos relacionados con acciones de owner
     event LpFeeCollected(address indexed lpToken, uint256 feeAmount, uint256 veloRewardsTransferred);
@@ -82,9 +94,30 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable {
 
        ///////////////////////////////////FUNCIONES PARA EL OWNER ///////////////////////////////////
 
+    /**
+     * 
+     * @notice Pausa todas las operaciones del contrato
+     */
+    
+    function pause() external  onlyOwner{
+        _pause();
+        emit GlobalPause(msg.sender);
+    }
+
 
     /**
-     * @notice Reclama las recompensas VELO acumuladas en el gauge y las envia a una direccion especifica 
+     * 
+     * @notice Renauda todas las operaciones del contrato
+     */
+        
+    function unPause() external  onlyOwner{
+        _unpause();
+        emit GlobalUnPaused(msg.sender);
+    }
+
+
+    /**
+     * @notice Reclama las recompensas VELO acumuladas en el gauge y las envia al dao.
      */
     function claimVeloOwner(address _lpToken) external nonReentrant onlyOwner{
         IGauge gauge = gauges[_lpToken];
@@ -129,8 +162,14 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable {
      */
     function withdrawITP(uint256 _amount) external nonReentrant onlyOwner {
         require(_amount > 0, "Cannot withdraw 0 tokens");
-        uint256 balanceItp = itpToken.balanceOf(address(this)); 
-        require(_amount <= balanceItp, "Insufficient ITP balance in contract");
+        uint256 balanceItpContract = itpToken.balanceOf(address(this));
+        require(_amount <= balanceItpContract, "Insufficient ITP balance in contract");
+
+        uint256 totalPendingRewards = calculatePendingRewards();
+        uint256 availableBalance = balanceItpContract - totalPendingRewards;
+        require(_amount <= availableBalance, "Cannot withdraw more than available balance after pending rewards");
+
+
 
         itpToken.safeTransfer(msg.sender, _amount);
     }
@@ -138,22 +177,52 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable {
     /**
      * @notice inicializa varios gauge al mismo tiempo en una llamada 
      */
-    function initializeGauges(address[] calldata lpTokens, IGauge[] calldata _gauges) external onlyOwner {
-        require(lpTokens.length == _gauges.length, "Mismatch between LPs and gauges");
-        for (uint256 i = 0; i < lpTokens.length; i++) {
-            gauges[lpTokens[i]] = _gauges[i];
-        emit GaugeAdded(lpTokens[i], address(_gauges[i]), boostPercentage[lpTokens[i]]);
-        }
+    function initializeGauges(address[] calldata _lpTokens, IGauge[] calldata _gauges) external onlyOwner {
+    require(_lpTokens.length == _gauges.length, "Mismatch between LPs and gauges");
+    for (uint256 i = 0; i < _lpTokens.length; i++) {
+        require(address(gauges[_lpTokens[i]]) == address(0), "Gauge already exists for this LP");
+        
+        gauges[_lpTokens[i]] = _gauges[i];
+        lpTokens.push(_lpTokens[i]); // Agregar el LP token al array
+        
+        emit GaugeAdded(_lpTokens[i], address(_gauges[i]), boostPercentage[_lpTokens[i]]);
     }
+}
 
-    /**
-     * @notice Agrega un nuevo contrato Gauge para un Lp o eliminar
-     */
-    function addGauge(address lpToken, IGauge gauge, uint256 feeBoostPercentage) external onlyOwner {
-        gauges[lpToken] = gauge;
-        boostPercentage[lpToken] = feeBoostPercentage;
-        emit GaugeAdded(lpToken, address(gauge), feeBoostPercentage);
+   /**
+ * @notice Agrega un nuevo contrato Gauge para un LP token o elimina el existente.
+ * @dev Si `gauge` es `address(0)`, se elimina el Gauge y el LP token del array `lpTokens`.
+ * @param _lpToken La dirección del LP token.
+ * @param gauge La dirección del contrato Gauge (o `address(0)` para eliminar).
+ * @param _boostPercentage El porcentaje de boost para las recompensas (se ignora si se elimina).
+ */
+function addGauge(address _lpToken, IGauge gauge, uint256 _boostPercentage) external onlyOwner {
+    if (address(gauge) == address(0)) {
+        require(address(gauges[_lpToken]) != address(0), "Gauge does not exist for this LP");
+        delete gauges[_lpToken];
+        delete boostPercentage[_lpToken];
+
+        
+        for (uint256 i = 0; i < lpTokens.length; i++) {
+            if (lpTokens[i] == _lpToken) {
+                lpTokens[i] = lpTokens[lpTokens.length - 1];
+                lpTokens.pop(); 
+                break;
+            }
+        }
+
+        emit GaugeRemoved(_lpToken);
+    } else {
+        require(address(gauges[_lpToken]) == address(0), "Gauge already exists for this LP");
+        require(_boostPercentage >= 50, "The boostReward must be at least 5%");
+        gauges[_lpToken] = gauge;
+        boostPercentage[_lpToken] = _boostPercentage;
+        lpTokens.push(_lpToken);
+
+        emit GaugeAdded(_lpToken, address(gauge), _boostPercentage);
     }
+}
+
 
     /**
      * @notice Configura la direccion del contrato Velodrome Router
@@ -188,6 +257,7 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable {
      * @param newBoostPercentage Nuevo porcentaje de boost (en base 1000)
      */
     function setBoostPercentage(uint256 newBoostPercentage, address _lpToken) external onlyOwner {
+        require(newBoostPercentage >= 50, "The boostReward must be at least 5%");
         IGauge gauge = gauges[_lpToken];
         require(address(gauge) != address(0), "Gauge not registered for this LP");
         boostPercentage[_lpToken] = newBoostPercentage;
@@ -201,11 +271,17 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable {
     /**
      * @notice Deposito de LPtokens
      */
-    function deposit(uint256 _amount, address lpToken) external nonReentrant {
+    function deposit(uint256 _amount, address lpToken) external nonReentrant whenNotPaused  {
         require(_amount > 0, "Cannot deposit 0 tokens");
         IGauge gauge = gauges[lpToken];
         require(address(gauge) != address(0), "Gauge not registered for this LP");
 
+        uint256 totalPendingRewards= calculatePendingRewards();
+        uint256 balanceItpContract = itpToken.balanceOf(address(this));
+        require(balanceItpContract>totalPendingRewards, "Cannot withdraw more than available balance after pending rewards");
+
+
+        
         _updateRewards(msg.sender, lpToken);
         IERC20(lpToken).safeTransferFrom(msg.sender, address(this), _amount);
         IERC20(lpToken).safeIncreaseAllowance(address(gauge), _amount);
@@ -218,7 +294,7 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable {
     /**
      * @notice Retiro de LP  junto con las recompensas generadas.
      */
-    function withdraw(uint256 _amount, address lpToken) external nonReentrant {
+    function withdraw(uint256 _amount, address lpToken) external nonReentrant whenNotPaused {
         require(_amount > 0, "Cannot withdraw 0 tokens");
 
         IGauge gauge = gauges[lpToken];
@@ -244,6 +320,28 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable {
 
         emit Withdraw(msg.sender, lpToken, _amount);
     }
+    
+    /**
+     * @notice Reclama recompensas de un gauge especifico.
+     */
+
+
+    function claimRewardITP(address _lpToken) external nonReentrant whenNotPaused{
+        IGauge gauge = gauges[_lpToken];
+        require(address(gauge) != address(0), "Gauge not registered for this LP");
+        _updateRewards(msg.sender, _lpToken);
+        
+        uint256 _rewards = rewards[msg.sender][_lpToken];
+        if (_rewards > 0) {
+            uint256 boostreward = _rewardBoost(_rewards, _lpToken);
+            rewards[msg.sender][_lpToken] = 0;
+            itpToken.safeTransfer(msg.sender, boostreward);
+            emit ClaimRewardsUser(msg.sender, _lpToken , _rewards);
+        }
+    } 
+
+
+
 
     /**
      * @notice Calcula las recompensas acumuladas de un usuario para un LP especifico 
@@ -298,6 +396,31 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable {
     return address(gauges[_lpToken]) != address(0);
     }
 
+
+    /**
+     * @notice Devuelve todas las direcciones de los LP tokens registrados
+     * @return Un array de direcciones de los LP tokens
+     */
+    function getAllLPTokens() external view returns (address[] memory) {
+        return lpTokens;
+    }
+
+
+    function emergencyWithdraw(address _lpToken) external nonReentrant whenPaused{
+        IGauge gauge = gauges[_lpToken];
+        require(address(gauge) != address(0), "Gauge not registered for this LP");
+        uint256 userBalance = balanceOf[msg.sender][_lpToken];
+        require(userBalance > 0, "No balance to withdraw" );
+
+        balanceOf[msg.sender][_lpToken]=0;
+
+        gauge.withdraw(userBalance);
+        IERC20(_lpToken).safeTransfer(msg.sender, userBalance);
+
+        emit EmergencyWithdraw(msg.sender, _lpToken, userBalance);
+
+    }
+
        ///////////////////////////////////FUNCIONES INTERNAS/////////////////////////////////////////
 
         /**
@@ -335,6 +458,25 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable {
         userRewardPerTokenPaid[_account][lpToken] = rewardPerTokenFromGauge;  
     }
 
+    /**
+     * @notice Devuelve el total de recompensas en itp pendientes
+     */
 
+    function calculatePendingRewards() internal view returns (uint256 totalPendingRewards) {
+    totalPendingRewards = 0;
+    
+    for (uint256 i = 0; i < lpTokens.length; i++) {
+        address currentLpToken = lpTokens[i];
+        IGauge gauge = gauges[currentLpToken];
+        
+        if (address(gauge) != address(0)) {
+            uint256 veloRewards = gauge.earned(address(this));
+            
+            uint256 lpPendingRewards = _rewardBoost(veloRewards, currentLpToken);
+            
+            totalPendingRewards += lpPendingRewards;
+        }
+    }
+}
 
 }
