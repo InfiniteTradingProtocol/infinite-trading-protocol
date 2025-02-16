@@ -8,7 +8,7 @@ import "../lib/openzeppelin-contracts/contracts/utils/Pausable.sol";
 import "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import {IGauge} from "./interfaces/IGauge.sol"; 
 
-interface IVelodromeRouter {
+interface IRouter {
     struct Path {
         address from;
         address to;
@@ -17,11 +17,11 @@ interface IVelodromeRouter {
     }
 }
 
-interface VeloOracle {
+interface IOracle {
     function getManyRatesWithConnectors(uint8 src_len, IERC20[] memory connectors) external view returns (uint256[] memory rates);
 }
 
-contract BoosterVeloLp is ReentrancyGuard, Ownable, Pausable {
+contract InfiniteBoost is ReentrancyGuard, Ownable, Pausable {
     using SafeERC20 for IERC20;
 
 
@@ -34,10 +34,10 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable, Pausable {
 
 
     // declaracion de variables publicas del contrato
-    IERC20 public immutable itpToken;  
-    IERC20 public immutable veloToken;  
-    IVelodromeRouter public router;
-    VeloOracle public oracle;
+    IERC20 public immutable boostRewardToken;  
+    IERC20 public immutable baseRewardToken;  
+    IRouter public router;
+    IOracle public oracle;
 
     uint256 public feePercentage = 10;     
     mapping(address => uint256) public boostPercentage;
@@ -81,25 +81,32 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable, Pausable {
 
 
     // eventos relacionados con acciones de usuario
-    event ClaimRewards(address indexed user, address indexed lpToken, uint256 veloRewards);
+    event ClaimRewards(address indexed user, address indexed lpToken, uint256 baseRewardToken);
 
     // eventos relacionados con acciones de owner
-    event LpFeeCollected(address indexed lpToken, uint256 feeAmount, uint256 veloRewardsTransferred);
+    event LpFeeCollected(address indexed lpToken, uint256 feeAmount, uint256 baseRewardTokenTransferred);
+
+    // modifier para verificar gauge activo 
+    modifier gaugeActive(address _lpToken) {
+        require(address(gauges[_lpToken]) != address(0),"LP token does not have an associated Gauge");
+        _;
+    }
+
 
 
     /**
      * 
      * @dev Configura los contratos de tokens, el router y el oracle
-     * @param _itpToken direccion del token ITP
-     * @param _veloToken direccion del token VELO
-     * @param _router direccion del contrato Velodrome Router
+     * @param _boostRewardToken direccion del token con el que se paga al usuario
+     * @param _baseRewardToken  direccion del token que obtiene el dao
+     * @param _router direccion del contrato  Router
      * @param _oracle direccion del contrato del oracle
      */
-    constructor(address _itpToken, address _veloToken, address _router, address _oracle, address _owner) Ownable (_owner) {
-        itpToken = IERC20(_itpToken);
-        veloToken = IERC20(_veloToken);
-        router = IVelodromeRouter(_router); 
-        oracle = VeloOracle(_oracle);
+    constructor(address _boostRewardToken, address _baseRewardToken , address _router, address _oracle, address _owner) Ownable (_owner) {
+        boostRewardToken = IERC20(_boostRewardToken);
+        baseRewardToken  = IERC20(_baseRewardToken );
+        router = IRouter(_router); 
+        oracle = IOracle(_oracle);
     }
 
        
@@ -129,17 +136,19 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable, Pausable {
 
 
     /**
-     * @notice Reclama las recompensas VELO acumuladas en el gauge y las envia al dao.
+     * @notice Reclama las recompensas baseRewardToken acumuladas en el gauge y las envia al dao.
      */
-    function claimVeloOwner(address _lpToken) external nonReentrant onlyOwner{
+    function claimBaseRewardTokenOwner(address _lpToken) external nonReentrant onlyOwner gaugeActive(_lpToken){
         IGauge gauge = gauges[_lpToken];
-        require(address(gauge) != address(0), "Gauge not registered for this LP");
-
         uint256 _rewards = gauge.earned(address(this));
         require(_rewards > 0, "No rewards available");
 
+        uint256 pendingRewards = calculatePendingRewards();
+        uint256 balanceBoostRewardToken = IERC20(boostRewardToken).balanceOf(address(this));
+        require(balanceBoostRewardToken>=pendingRewards, "Insufficient RewardToken balance to cover pending rewards");
+
         gauge.getReward(address(this));
-        IERC20(veloToken).safeTransfer(msg.sender, _rewards);
+        IERC20(baseRewardToken).safeTransfer(msg.sender, _rewards);
         emit ClaimRewards(msg.sender, _lpToken, _rewards);
     }
 
@@ -150,40 +159,42 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable, Pausable {
     /**
      * @notice Recupera comisiones acumuladas de un LP y las envia a una address en especifico
      */
-    function getLpFeeAndVelo(address _lpToken, uint256 amount) external nonReentrant onlyOwner{
-        require(amount <= lpFee[_lpToken], "Insufficient LP fee balance");
+    function getLpFeeAndbaseRewardToken(address _lpToken, uint256 _amount) external nonReentrant onlyOwner gaugeActive(_lpToken){
+        require(_amount <= lpFee[_lpToken], "Insufficient LP fee balance");
+        require(_amount > 0, "Amount must be greater than 0");
 
         IGauge gauge = gauges[_lpToken];
-        require(address(gauge) != address(0), "Gauge not registered for this LP");
-
-        gauge.withdraw(amount);
-        lpFee[_lpToken] -= amount;
-        IERC20(_lpToken).safeTransfer(msg.sender, amount);
+        gauge.withdraw(_amount);
+        lpFee[_lpToken] -= _amount;
+        IERC20(_lpToken).safeTransfer(msg.sender, _amount);
 
         uint256 _rewards = gauge.earned(address(this));
         if(_rewards>0){
+            uint256 pendingRewards = calculatePendingRewards();
+            uint256 balanceBoostRewardToken = IERC20(boostRewardToken).balanceOf(address(this));
+            require(balanceBoostRewardToken>=pendingRewards, "Insufficient RewardToken balance to cover pending rewards");
             gauge.getReward(address(this));
-            IERC20(veloToken).safeTransfer(msg.sender, _rewards);
+            IERC20(baseRewardToken ).safeTransfer(msg.sender, _rewards);
         }
-        emit LpFeeCollected(_lpToken, amount,  _rewards);
+        emit LpFeeCollected(_lpToken, _amount,  _rewards);
 
     }
 
     /**
-     * @notice Retira tokens ITP del contrato
+     * @notice Retira  RewardToken del contrato
      */
-    function withdrawITP(uint256 _amount) external nonReentrant onlyOwner {
+    function withdrawRewardToken(uint256 _amount) external nonReentrant onlyOwner {
         require(_amount > 0, "Cannot withdraw 0 tokens");
-        uint256 balanceItpContract = itpToken.balanceOf(address(this));
-        require(_amount <= balanceItpContract, "Insufficient ITP balance in contract");
+        uint256 balanceRewardTokenContract = boostRewardToken.balanceOf(address(this));
+        require(_amount <= balanceRewardTokenContract, "Insufficient RewardToken balance in contract");
 
         uint256 totalPendingRewards = calculatePendingRewards();
-        uint256 availableBalance = balanceItpContract - totalPendingRewards;
+        uint256 availableBalance = balanceRewardTokenContract - totalPendingRewards;
         require(_amount <= availableBalance, "Cannot withdraw more than available balance after pending rewards");
 
 
 
-        itpToken.safeTransfer(msg.sender, _amount);
+        boostRewardToken.safeTransfer(msg.sender, _amount);
     }
 
    
@@ -226,11 +237,11 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable, Pausable {
     
 
     /**
-     * @notice Configura la direccion del contrato Velodrome Router
+     * @notice Configura la direccion del contrato baseRewardTokendrome Router
      */
     function setRouter(address _router) external onlyOwner {
         require(_router != address(0), "Invalid router address");
-        router = IVelodromeRouter(_router);
+        router = IRouter(_router);
         emit RouterUpdated(_router);
     }
 
@@ -239,7 +250,7 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable, Pausable {
      */
     function setOracle(address _oracle) external onlyOwner {
         require(_oracle != address(0), "Invalid oracle address");
-        oracle = VeloOracle(_oracle);
+        oracle = IOracle(_oracle);
         emit OracleUpdated(_oracle);
     }
 
@@ -257,10 +268,8 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable, Pausable {
      * @notice Configura el porcentaje de boost aplicado a las recompensas
      * @param newBoostPercentage Nuevo porcentaje de boost (en base 1000)
      */
-    function setBoostPercentage(uint256 newBoostPercentage, address _lpToken) external onlyOwner {
+    function setBoostPercentage(uint256 newBoostPercentage, address _lpToken) external onlyOwner gaugeActive(_lpToken) {
         require(newBoostPercentage >= 50, "The boostReward must be at least 5%");
-        IGauge gauge = gauges[_lpToken];
-        require(address(gauge) != address(0), "Gauge not registered for this LP");
         boostPercentage[_lpToken] = newBoostPercentage;
         emit BoostPercentageUpdated(_lpToken, newBoostPercentage);
         }
@@ -269,11 +278,10 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable, Pausable {
      * @notice Funcion para asignar un maximo de recompensas en un Lp
      */
 
-    function setRewardPool(address _lpToken, uint256 _rewardAmount) public onlyOwner {
-        uint256 balanceItp= itpToken.balanceOf(address(this));
+    function setRewardPool(address _lpToken, uint256 _rewardAmount) public onlyOwner gaugeActive(_lpToken) {
+        uint256 balanceRewardToken= boostRewardToken.balanceOf(address(this));
        
-        require(balanceItp>=_rewardAmount, "The contract doesn't have enough tokens");
-        require(address(gauges[_lpToken])!= address(0), "Gauge not registred for this Lp");
+        require(balanceRewardToken>=_rewardAmount, "The contract doesn't have enough tokens");
         rewardPools[_lpToken].totalRewards= _rewardAmount;
     }
 
@@ -284,14 +292,14 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable, Pausable {
     /**
      * @notice Deposito de LPtokens
      */
-    function deposit(uint256 _amount, address _lpToken) external nonReentrant whenNotPaused  {
+    function deposit(uint256 _amount, address _lpToken) external nonReentrant whenNotPaused gaugeActive(_lpToken) {
         require(_amount > 0, "Cannot deposit 0 tokens");
+
         IGauge gauge = gauges[_lpToken];
-        require(address(gauge) != address(0), "Gauge not registered for this LP");
 
         uint256 totalPendingRewards= calculatePendingRewards();
-        uint256 balanceItpContract = itpToken.balanceOf(address(this));
-        require(balanceItpContract>totalPendingRewards, "Cannot withdraw more than available balance after pending rewards");
+        uint256 balanceRewardToken = boostRewardToken.balanceOf(address(this));
+        require(balanceRewardToken>totalPendingRewards, "Cannot withdraw more than available balance after pending rewards");
 
         RewardPool storage pool = rewardPools[_lpToken];
         require(pool.totalRewards>pool.distributedRewards, "No rewards left for this LP");
@@ -309,31 +317,30 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable, Pausable {
     /**
      * @notice Retiro de LP  junto con las recompensas generadas.
      */
-    function withdraw(uint256 _amount, address lpToken) external nonReentrant whenNotPaused {
+    function withdraw(uint256 _amount, address _lpToken) external nonReentrant whenNotPaused gaugeActive(_lpToken) {
         require(_amount > 0, "Cannot withdraw 0 tokens");
 
-        IGauge gauge = gauges[lpToken];
-        require(address(gauge) != address(0), "Gauge not registered for this LP");
-        require(balanceOf[msg.sender][lpToken] >= _amount, "Insufficient balance");
+        require(balanceOf[msg.sender][_lpToken] >= _amount, "Insufficient balance");
 
-        _updateRewards(msg.sender, lpToken);
-        balanceOf[msg.sender][lpToken] -= _amount;
+        _updateRewards(msg.sender, _lpToken);
+        balanceOf[msg.sender][_lpToken] -= _amount;
 
+        IGauge gauge = gauges[_lpToken];
         gauge.withdraw(_amount);
         uint256 fee = (_amount * feePercentage) / 1000;
-        lpFee[lpToken]+=fee;
+        lpFee[_lpToken]+=fee;
         
         uint256 amount = _amount - fee;
-        IERC20(lpToken).safeTransfer(msg.sender, amount);
+        IERC20(_lpToken).safeTransfer(msg.sender, amount);
 
-        uint256 _rewards = rewards[msg.sender][lpToken];
+        uint256 _rewards = rewards[msg.sender][_lpToken];
         if (_rewards > 0) {
-            uint256 boostreward = _rewardBoost(_rewards, lpToken);
-            rewards[msg.sender][lpToken] = 0;
-            itpToken.safeTransfer(msg.sender, boostreward);
+            uint256 boostreward = _rewardBoost(_rewards, _lpToken);
+            rewards[msg.sender][_lpToken] = 0;
+            boostRewardToken.safeTransfer(msg.sender, boostreward);
         }
 
-        emit Withdraw(msg.sender, lpToken, _amount);
+        emit Withdraw(msg.sender, _lpToken, _amount);
     }
     
     /**
@@ -341,9 +348,7 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable, Pausable {
      */
 
 
-    function claimRewardITP(address _lpToken) external nonReentrant whenNotPaused{
-        IGauge gauge = gauges[_lpToken];
-        require(address(gauge) != address(0), "Gauge not registered for this LP");
+    function claimRewardRewardToken(address _lpToken) external nonReentrant whenNotPaused gaugeActive(_lpToken){
         _updateRewards(msg.sender, _lpToken);
         
         uint256 _rewards = rewards[msg.sender][_lpToken];
@@ -354,7 +359,7 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable, Pausable {
             pool.distributedRewards += boostreward;
 
             rewards[msg.sender][_lpToken] = 0;
-            itpToken.safeTransfer(msg.sender, boostreward);
+            boostRewardToken.safeTransfer(msg.sender, boostreward);
             emit ClaimRewardsUser(msg.sender, _lpToken , _rewards);
         }
     } 
@@ -366,15 +371,16 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable, Pausable {
      * @notice Calcula las recompensas acumuladas de un usuario para un LP especifico 
      * @return uint256 Cantidad de recompensas acumuladas
      */
-     function earned(address _account, address lpToken) public view returns (uint256) {
-        IGauge gauge = gauges[lpToken];  
+     function earned(address _account, address _lpToken) public view returns (uint256) {
+        IGauge gauge = gauges[_lpToken];  
         require(address(gauge) != address(0), "Gauge not registered for this LP");
-
+        
+        
         uint256 rewardPerTokenFromGauge = gauge.rewardPerToken(); 
-        uint256 userBalance = balanceOf[_account][lpToken];  
+        uint256 userBalance = balanceOf[_account][_lpToken];  
 
         // calculo de las recompensas acumuladas basado en el  balance del usuario 
-        return (userBalance * (rewardPerTokenFromGauge - userRewardPerTokenPaid[_account][lpToken])) / 1e18 + rewards[_account][lpToken];
+        return (userBalance * (rewardPerTokenFromGauge - userRewardPerTokenPaid[_account][_lpToken])) / 1e18 + rewards[_account][_lpToken];
     }
 
     /**
@@ -385,25 +391,21 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable, Pausable {
     }
 
     /**
-     * @notice devuelve las rewards en itp de cada  usuario para cada lp especifico 
+     * @notice devuelve las rewards en RewardToke de cada  usuario para cada lp especifico 
      */
-    function earnedItp(address _acount, address _lpToken) public view returns (uint256){
+    function earnedRewardToken(address _acount, address _lpToken) public view returns (uint256){
         IGauge gauge = gauges[_lpToken];  
         require(address(gauge) != address(0), "Gauge not registered for this LP");
-
-       uint256 _rewardVelo= earned(_acount,_lpToken);
-       uint256 _rewardItp= _rewardBoost(_rewardVelo, _lpToken);
-       return _rewardItp;
-
+       uint256 _rewardbaseRewardToken= earned(_acount,_lpToken);
+       uint256 _rewardToken= _rewardBoost(_rewardbaseRewardToken, _lpToken);
+       return _rewardToken;
     }
 
 
      /**
      * @notice muestra el BoostPercentage de un lp especifico
      */
-    function viewBoostPercentage(address _lpToken) external  view returns (uint256) {
-        IGauge gauge= gauges[_lpToken];
-        require(address(gauge) != address(0), "Gauge not registered for this LP");
+    function viewBoostPercentage(address _lpToken) external  view gaugeActive(_lpToken) returns (uint256)  {
         return boostPercentage[_lpToken];
     }
 
@@ -425,14 +427,14 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable, Pausable {
     }
 
 
-    function emergencyWithdraw(address _lpToken) external nonReentrant whenPaused{
-        IGauge gauge = gauges[_lpToken];
-        require(address(gauge) != address(0), "Gauge not registered for this LP");
+    function emergencyWithdraw(address _lpToken) external nonReentrant whenPaused gaugeActive(_lpToken){
         uint256 userBalance = balanceOf[msg.sender][_lpToken];
         require(userBalance > 0, "No balance to withdraw" );
 
+
         balanceOf[msg.sender][_lpToken]=0;
 
+        IGauge gauge = gauges[_lpToken];
         gauge.withdraw(userBalance);
         IERC20(_lpToken).safeTransfer(msg.sender, userBalance);
 
@@ -444,18 +446,20 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable, Pausable {
 
         /**
      * @notice Calcula las recompensas con boost adicional
-     * @dev Esta funcion aplica un boost sobre las recompensas en VELO utilizando el Oracle y las tasas de los conectores.
+     * @dev Esta funcion aplica un boost sobre las recompensas en baseRewardToken utilizando el Oracle y las tasas de los conectores.
      */
-        function _rewardBoost(uint256 _veloAmount , address _lpToken) internal view returns (uint256 ) {
+        function _rewardBoost(uint256 _baseRewardTokenAmount , address _lpToken) internal view returns (uint256 ) {
             
             IERC20[] memory connectors = new IERC20[](2) ;
-            connectors[0] = IERC20(0x9560e827aF36c94D2Ac33a39bCE1Fe78631088Db); 
-            connectors[1] = IERC20(0x0a7B751FcDBBAA8BB988B9217ad5Fb5cfe7bf7A0);
+            connectors[0] = IERC20(baseRewardToken ); 
+            connectors[1] = IERC20(boostRewardToken);
 
-            uint256[] memory rates = oracle.getManyRatesWithConnectors(1, connectors); //llamada al oraculo para obtener el rate
+            uint256[] memory rates = oracle.getManyRatesWithConnectors(1, connectors); 
+            require(rates.length > 0 && rates[0] > 0, "Invalid oracle rate");
+
             
             // aplica la tasa de conversion obtenida para calcular el valor final con boost
-            uint256 baseValor = (_veloAmount * rates[0]) / 10**18; 
+            uint256 baseValor = (_baseRewardTokenAmount * rates[0]) / 10**18; 
             uint _boostPercentage= boostPercentage[_lpToken];
             uint256 boostedValor = (baseValor * (1000 + _boostPercentage)) / 1000;
 
@@ -468,17 +472,15 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable, Pausable {
      * @dev Esta funcion se llama antes de cualquier acción de depósito o retiro, actualizando las recompensas no reclamadas
      */
 
-    function _updateRewards(address _account, address lpToken) internal {
-        IGauge gauge = gauges[lpToken];  
-        require(address(gauge) != address(0), "Gauge not registered for this LP");
-
+    function _updateRewards(address _account, address _lpToken) internal gaugeActive(_lpToken) {
+        IGauge gauge = gauges[_lpToken];
         uint256 rewardPerTokenFromGauge = gauge.rewardPerToken(); 
-        rewards[_account][lpToken] = earned(_account, lpToken);  
-        userRewardPerTokenPaid[_account][lpToken] = rewardPerTokenFromGauge;  
+        rewards[_account][_lpToken] = earned(_account, _lpToken);  
+        userRewardPerTokenPaid[_account][_lpToken] = rewardPerTokenFromGauge;  
     }
 
     /**
-     * @notice Devuelve el total de recompensas en itp pendientes
+     * @notice Devuelve el total de recompensas en RewardToken pendientes
      */
 
     function calculatePendingRewards() internal view returns (uint256 totalPendingRewards) {
@@ -489,13 +491,26 @@ contract BoosterVeloLp is ReentrancyGuard, Ownable, Pausable {
         IGauge gauge = gauges[currentLpToken];
         
         if (address(gauge) != address(0)) {
-            uint256 veloRewards = gauge.earned(address(this));
+            uint256 _baseRewardToken = gauge.earned(address(this));
             
-            uint256 lpPendingRewards = _rewardBoost(veloRewards, currentLpToken);
+            uint256 potentialBoostRewards = _rewardBoost(_baseRewardToken, currentLpToken);
             
-            totalPendingRewards += lpPendingRewards;
+            RewardPool storage pool = rewardPools[currentLpToken];
+            uint256 remainingRewards = 0;
+            
+            if (pool.totalRewards > pool.distributedRewards) {
+                remainingRewards = pool.totalRewards - pool.distributedRewards;
+            }
+            
+            uint256 availableRewards = potentialBoostRewards;
+            if (potentialBoostRewards > remainingRewards) {
+                availableRewards = remainingRewards;
+            }
+            
+            totalPendingRewards += availableRewards;
         }
     }
+}
 }
 
 }
