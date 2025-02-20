@@ -29,6 +29,7 @@ contract InfiniteBoost is ReentrancyGuard, Ownable, Pausable {
     struct RewardPool {
         uint256 totalRewards;
         uint256 distributedRewards;
+        uint256 baseRewardTokenEarned;
     }
 
 
@@ -39,7 +40,11 @@ contract InfiniteBoost is ReentrancyGuard, Ownable, Pausable {
     IRouter public router;
     IOracle public oracle;
 
-    uint256 public feePercentage = 10;     
+    uint256 public feePercentage = 10;    
+
+    // variable para seguir la asignacion de los tokens del contrato
+    uint256 public totalAssginedBoostRewards;
+
     mapping(address => uint256) public boostPercentage;
 
 
@@ -73,6 +78,7 @@ contract InfiniteBoost is ReentrancyGuard, Ownable, Pausable {
     event GaugeAdded(address indexed lpToken, address indexed gauge, uint256 feeBoostPercentage);
     event GaugeRemoved(address indexed lpToken);
 
+
     //eventos relacionados al sistema de pausa
 
     event EmergencyWithdraw(address indexed user, address indexed lpToken, uint256 amount);
@@ -85,6 +91,11 @@ contract InfiniteBoost is ReentrancyGuard, Ownable, Pausable {
 
     // eventos relacionados con acciones de owner
     event LpFeeCollected(address indexed lpToken, uint256 feeAmount, uint256 baseRewardTokenTransferred);
+
+
+    event RewardPoolUpdated(address indexed lpToken, uint256 rewardAmount);
+
+    event RewardTokenWithdrawn(address indexed owner, uint256 amount);
 
     // modifier para verificar gauge activo 
     modifier gaugeActive(address _lpToken) {
@@ -103,6 +114,11 @@ contract InfiniteBoost is ReentrancyGuard, Ownable, Pausable {
      * @param _oracle direccion del contrato del oracle
      */
     constructor(address _boostRewardToken, address _baseRewardToken , address _router, address _oracle, address _owner) Ownable (_owner) {
+        require(_boostRewardToken != address(0), "Invalid boostRewardToken address");
+        require(_baseRewardToken != address(0), "Invalid baseRewardToken address");
+        require(_router != address(0), "Invalid router address");
+        require(_oracle != address(0), "Invalid oracle address");
+
         boostRewardToken = IERC20(_boostRewardToken);
         baseRewardToken  = IERC20(_baseRewardToken );
         router = IRouter(_router); 
@@ -146,39 +162,13 @@ contract InfiniteBoost is ReentrancyGuard, Ownable, Pausable {
         uint256 pendingRewards = calculatePendingRewards();
         uint256 balanceBoostRewardToken = IERC20(boostRewardToken).balanceOf(address(this));
         require(balanceBoostRewardToken>=pendingRewards, "Insufficient RewardToken balance to cover pending rewards");
+        rewardPools[_lpToken].baseRewardTokenEarned= 0;
 
         gauge.getReward(address(this));
         IERC20(baseRewardToken).safeTransfer(msg.sender, _rewards);
         emit ClaimRewards(msg.sender, _lpToken, _rewards);
     }
 
-
-
-
-
-    /**
-     * @notice Recupera comisiones acumuladas de un LP y las envia a una address en especifico
-     */
-    function getLpFeeAndbaseRewardToken(address _lpToken, uint256 _amount) external nonReentrant onlyOwner gaugeActive(_lpToken){
-        require(_amount <= lpFee[_lpToken], "Insufficient LP fee balance");
-        require(_amount > 0, "Amount must be greater than 0");
-
-        IGauge gauge = gauges[_lpToken];
-        gauge.withdraw(_amount);
-        lpFee[_lpToken] -= _amount;
-        IERC20(_lpToken).safeTransfer(msg.sender, _amount);
-
-        uint256 _rewards = gauge.earned(address(this));
-        if(_rewards>0){
-            uint256 pendingRewards = calculatePendingRewards();
-            uint256 balanceBoostRewardToken = IERC20(boostRewardToken).balanceOf(address(this));
-            require(balanceBoostRewardToken>=pendingRewards, "Insufficient RewardToken balance to cover pending rewards");
-            gauge.getReward(address(this));
-            IERC20(baseRewardToken ).safeTransfer(msg.sender, _rewards);
-        }
-        emit LpFeeCollected(_lpToken, _amount,  _rewards);
-
-    }
 
     /**
      * @notice Retira  RewardToken del contrato
@@ -195,6 +185,7 @@ contract InfiniteBoost is ReentrancyGuard, Ownable, Pausable {
 
 
         boostRewardToken.safeTransfer(msg.sender, _amount);
+        emit RewardTokenWithdrawn(msg.sender, _amount);
     }
 
    
@@ -224,6 +215,14 @@ contract InfiniteBoost is ReentrancyGuard, Ownable, Pausable {
         } else {
             require(address(gauges[_lpToken]) == address(0), "Gauge already exists for this LP");
             require(_boostPercentage >= 50, "The boostReward must be at least 5%");
+
+            require(
+            IERC20(_lpToken).balanceOf(address(gauge)) >= 0 && 
+            gauge.stakingToken() == _lpToken, 
+            "Invalid gauge for this LP token"
+            );
+
+
             gauges[_lpToken] = gauge;
             boostPercentage[_lpToken] = _boostPercentage;
             lpTokens.push(_lpToken);
@@ -256,7 +255,7 @@ contract InfiniteBoost is ReentrancyGuard, Ownable, Pausable {
 
     /**
      * @notice Configura el porcentaje de comisión para retiros
-     * @param newFeePercentage Nuevo porcentaje de comisión (en base 1000)
+     * @param newFeePercentage Nuevo porcentaje de comisión (en base 1000, donde 10 = 1%)
      */
     function setFeePercentage(uint256 newFeePercentage ) external onlyOwner {
         require(newFeePercentage <= 10, "Fee percentage cannot exceed 1%");
@@ -266,7 +265,7 @@ contract InfiniteBoost is ReentrancyGuard, Ownable, Pausable {
 
     /**
      * @notice Configura el porcentaje de boost aplicado a las recompensas
-     * @param newBoostPercentage Nuevo porcentaje de boost (en base 1000)
+     * @param newBoostPercentage Nuevo porcentaje de boost (en base 1000, donde 50 = 5%)
      */
     function setBoostPercentage(uint256 newBoostPercentage, address _lpToken) external onlyOwner gaugeActive(_lpToken) {
         require(newBoostPercentage >= 50, "The boostReward must be at least 5%");
@@ -281,8 +280,13 @@ contract InfiniteBoost is ReentrancyGuard, Ownable, Pausable {
     function setRewardPool(address _lpToken, uint256 _rewardAmount) public onlyOwner gaugeActive(_lpToken) {
         uint256 balanceRewardToken= boostRewardToken.balanceOf(address(this));
        
-        require(balanceRewardToken>=_rewardAmount, "The contract doesn't have enough tokens");
-        rewardPools[_lpToken].totalRewards= _rewardAmount;
+        uint256 previousAssigned  = rewardPools[_lpToken].totalRewards;
+        uint256 newTotalAssigned = (totalAssginedBoostRewards - previousAssigned) + _rewardAmount;
+        require(newTotalAssigned <= balanceRewardToken, "Insufficient tokens to assign");
+        rewardPools[_lpToken].totalRewards = _rewardAmount;
+        totalAssginedBoostRewards = newTotalAssigned;
+
+        emit RewardPoolUpdated(_lpToken, _rewardAmount);
     }
 
 
@@ -333,13 +337,6 @@ contract InfiniteBoost is ReentrancyGuard, Ownable, Pausable {
         uint256 amount = _amount - fee;
         IERC20(_lpToken).safeTransfer(msg.sender, amount);
 
-        uint256 _rewards = rewards[msg.sender][_lpToken];
-        if (_rewards > 0) {
-            uint256 boostreward = _rewardBoost(_rewards, _lpToken);
-            rewards[msg.sender][_lpToken] = 0;
-            boostRewardToken.safeTransfer(msg.sender, boostreward);
-        }
-
         emit Withdraw(msg.sender, _lpToken, _amount);
     }
     
@@ -357,6 +354,7 @@ contract InfiniteBoost is ReentrancyGuard, Ownable, Pausable {
 
             RewardPool storage pool = rewardPools[_lpToken];
             pool.distributedRewards += boostreward;
+            pool.baseRewardTokenEarned += _rewards;
 
             rewards[msg.sender][_lpToken] = 0;
             boostRewardToken.safeTransfer(msg.sender, boostreward);
@@ -483,7 +481,7 @@ contract InfiniteBoost is ReentrancyGuard, Ownable, Pausable {
      * @notice Devuelve el total de recompensas en RewardToken pendientes
      */
 
-    function calculatePendingRewards() internal view returns (uint256 totalPendingRewards) {
+    function calculatePendingRewards() public view returns (uint256 totalPendingRewards) {
     totalPendingRewards = 0;
     
     for (uint256 i = 0; i < lpTokens.length; i++) {
@@ -491,26 +489,21 @@ contract InfiniteBoost is ReentrancyGuard, Ownable, Pausable {
         IGauge gauge = gauges[currentLpToken];
         
         if (address(gauge) != address(0)) {
-            uint256 _baseRewardToken = gauge.earned(address(this));
-            
-            uint256 potentialBoostRewards = _rewardBoost(_baseRewardToken, currentLpToken);
-            
             RewardPool storage pool = rewardPools[currentLpToken];
-            uint256 remainingRewards = 0;
-            
-            if (pool.totalRewards > pool.distributedRewards) {
-                remainingRewards = pool.totalRewards - pool.distributedRewards;
+
+            uint256 totalBaseRewards = gauge.earned(address(this));
+            uint256 alreadyPaidRewards = pool.baseRewardTokenEarned;
+
+            if (totalBaseRewards > alreadyPaidRewards) {
+                uint256 pendingBaseRewards = totalBaseRewards - alreadyPaidRewards;
+
+                if (pendingBaseRewards > 0) {
+                    uint256 potentialBoostRewards = _rewardBoost(pendingBaseRewards, currentLpToken);
+                    totalPendingRewards += potentialBoostRewards;
+                }
             }
-            
-            uint256 availableRewards = potentialBoostRewards;
-            if (potentialBoostRewards > remainingRewards) {
-                availableRewards = remainingRewards;
-            }
-            
-            totalPendingRewards += availableRewards;
         }
     }
+    return totalPendingRewards;
 }
-}
-
 }
