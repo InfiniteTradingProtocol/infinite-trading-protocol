@@ -34,16 +34,20 @@ contract InfiniteBoost is ReentrancyGuard, Ownable, Pausable {
 
 
 
+
     // declaracion de variables publicas del contrato
     IERC20 public immutable boostRewardToken;  
     IERC20 public immutable baseRewardToken;  
+    IERC20 public immutable weth;
+    IERC20 public immutable connectorToken;
+
     IRouter public router;
     IOracle public oracle;
 
     uint256 public feePercentage = 10;    
 
     // variable para seguir la asignacion de los tokens del contrato
-    uint256 public totalAssginedBoostRewards;
+    uint256 public totalAssignedBoostRewards;
 
     mapping(address => uint256) public boostPercentage;
 
@@ -77,7 +81,7 @@ contract InfiniteBoost is ReentrancyGuard, Ownable, Pausable {
     event OracleUpdated(address indexed newOracle);
     event GaugeAdded(address indexed lpToken, address indexed gauge, uint256 feeBoostPercentage);
     event GaugeRemoved(address indexed lpToken);
-
+    event BoostRewardDeposited(address indexed depositor, uint256 amount);
 
     //eventos relacionados al sistema de pausa
 
@@ -90,7 +94,7 @@ contract InfiniteBoost is ReentrancyGuard, Ownable, Pausable {
     event ClaimRewards(address indexed user, address indexed lpToken, uint256 baseRewardToken);
 
     // eventos relacionados con acciones de owner
-    event LpFeeCollected(address indexed lpToken, uint256 feeAmount, uint256 baseRewardTokenTransferred);
+    event LpFeeCollected(address indexed lpToken, uint256 feeAmount);
 
 
     event RewardPoolUpdated(address indexed lpToken, uint256 rewardAmount);
@@ -113,14 +117,18 @@ contract InfiniteBoost is ReentrancyGuard, Ownable, Pausable {
      * @param _router direccion del contrato  Router
      * @param _oracle direccion del contrato del oracle
      */
-    constructor(address _boostRewardToken, address _baseRewardToken , address _router, address _oracle, address _owner) Ownable (_owner) {
+    constructor(address _boostRewardToken, address _baseRewardToken ,address _weth, address _connectorToken, address _router, address _oracle, address _owner) Ownable (_owner) {
         require(_boostRewardToken != address(0), "Invalid boostRewardToken address");
         require(_baseRewardToken != address(0), "Invalid baseRewardToken address");
+        require(_weth != address(0), "Invalid baseRewardToken address");
+        require(_connectorToken != address(0), "Invalid baseRewardToken address");
         require(_router != address(0), "Invalid router address");
         require(_oracle != address(0), "Invalid oracle address");
 
         boostRewardToken = IERC20(_boostRewardToken);
         baseRewardToken  = IERC20(_baseRewardToken );
+        weth = IERC20(_weth );
+        connectorToken  = IERC20(_connectorToken );
         router = IRouter(_router); 
         oracle = IOracle(_oracle);
     }
@@ -169,6 +177,24 @@ contract InfiniteBoost is ReentrancyGuard, Ownable, Pausable {
         emit ClaimRewards(msg.sender, _lpToken, _rewards);
     }
 
+
+
+
+
+    /**
+     * @notice Recupera comisiones acumuladas de un LP y las envia a una address en especifico
+     */
+    function getLpFee(address _lpToken, uint256 _amount) external nonReentrant onlyOwner gaugeActive(_lpToken){
+        require(_amount <= lpFee[_lpToken], "Insufficient LP fee balance");
+        require(_amount > 0, "Amount must be greater than 0");
+
+        IGauge gauge = gauges[_lpToken];
+        gauge.withdraw(_amount);
+        lpFee[_lpToken] -= _amount;
+        IERC20(_lpToken).safeTransfer(msg.sender, _amount);
+        emit LpFeeCollected(_lpToken, _amount);
+
+    }
 
     /**
      * @notice Retira  RewardToken del contrato
@@ -281,14 +307,22 @@ contract InfiniteBoost is ReentrancyGuard, Ownable, Pausable {
         uint256 balanceRewardToken= boostRewardToken.balanceOf(address(this));
        
         uint256 previousAssigned  = rewardPools[_lpToken].totalRewards;
-        uint256 newTotalAssigned = (totalAssginedBoostRewards - previousAssigned) + _rewardAmount;
+        uint256 newTotalAssigned = (totalAssignedBoostRewards - previousAssigned) + _rewardAmount;
+        uint256 distributedRewards = rewardPools[_lpToken].distributedRewards;
+        require(newTotalAssigned > distributedRewards,"New total assigned must be greater than distributed rewards");
         require(newTotalAssigned <= balanceRewardToken, "Insufficient tokens to assign");
         rewardPools[_lpToken].totalRewards = _rewardAmount;
-        totalAssginedBoostRewards = newTotalAssigned;
+        totalAssignedBoostRewards = newTotalAssigned;
 
         emit RewardPoolUpdated(_lpToken, _rewardAmount);
     }
 
+
+    function depositBoostReward(uint256 _amount) public onlyOwner {
+        require(_amount >0, "Cannot deposit 0 tokens");
+        IERC20(boostRewardToken).safeTransferFrom(msg.sender, address(this), _amount);
+        emit BoostRewardDeposited(msg.sender, _amount);
+    }
 
        ///////////////////////////////////FUNCIONES PARA USUARIOS ///////////////////////////////////
 
@@ -330,11 +364,11 @@ contract InfiniteBoost is ReentrancyGuard, Ownable, Pausable {
         balanceOf[msg.sender][_lpToken] -= _amount;
 
         IGauge gauge = gauges[_lpToken];
-        gauge.withdraw(_amount);
         uint256 fee = (_amount * feePercentage) / 1000;
         lpFee[_lpToken]+=fee;
         
         uint256 amount = _amount - fee;
+        gauge.withdraw(amount);
         IERC20(_lpToken).safeTransfer(msg.sender, amount);
 
         emit Withdraw(msg.sender, _lpToken, _amount);
@@ -361,9 +395,6 @@ contract InfiniteBoost is ReentrancyGuard, Ownable, Pausable {
             emit ClaimRewardsUser(msg.sender, _lpToken , _rewards);
         }
     } 
-
-
-
 
     /**
      * @notice Calcula las recompensas acumuladas de un usuario para un LP especifico 
@@ -446,11 +477,13 @@ contract InfiniteBoost is ReentrancyGuard, Ownable, Pausable {
      * @notice Calcula las recompensas con boost adicional
      * @dev Esta funcion aplica un boost sobre las recompensas en baseRewardToken utilizando el Oracle y las tasas de los conectores.
      */
-        function _rewardBoost(uint256 _baseRewardTokenAmount , address _lpToken) internal view returns (uint256 ) {
+        function _rewardBoost(uint256 _baseRewardTokenAmount , address _lpToken) public view returns (uint256 ) {
             
-            IERC20[] memory connectors = new IERC20[](2) ;
-            connectors[0] = IERC20(baseRewardToken ); 
-            connectors[1] = IERC20(boostRewardToken);
+            IERC20[] memory connectors = new IERC20[](4) ;
+            connectors[0] = IERC20(baseRewardToken );
+            connectors[1] = IERC20(weth );
+            connectors[2] = IERC20(connectorToken );
+            connectors[3] = IERC20(boostRewardToken);
 
             uint256[] memory rates = oracle.getManyRatesWithConnectors(1, connectors); 
             require(rates.length > 0 && rates[0] > 0, "Invalid oracle rate");
