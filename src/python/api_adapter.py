@@ -1,34 +1,14 @@
-"""
-Executes a GET request to the Infinite Trading API with specified parameters.
-
+"""\
 Author: etherpilled
 Organization: Infinite Trading
-Year: 2024
+Year: 2025
 
-Parameters:
-    api_key (str): The API key required for authentication. Defaults to an initial key you must replace.
-    protocol (str): Identifier for the trading protocol, e.g., 'dhedge'. Defaults to 'dhedge'.
-    pool (str): The specific pool address to interact with. Must be specified by the user.
-    network (str): The blockchain network to use, e.g., 'polygon', 'optimism', 'base', 'arbitrum'. Defaults to 'polygon'.
-    pair (str): The trading pair to target, such as 'WBTC-USDC'. Must be specified by the user.
-    side (str): Desired trading position ('long', 'cash', or 'short'). Must be specified by the user.
-    threshold (float): Percentage threshold to trigger a trade to avoid excessive small trades. Defaults to 1.
-    max_usd (float): Maximum USD amount for the trade. Defaults to 500.
-    slippage (float): Maximum allowed slippage percentage. Defaults to 1.
-    share (float): Percentage of the total trade amount. Defaults to 100.
-    platform (str): The trading platform to use, e.g., 'uniswapV3'. Defaults to 'uniswapV3'.
-
-Returns:
-    dict: A dictionary containing the API response in JSON format.
-
-Raises:
-    ValueError: Raised if the 'side' parameter is invalid.
-    HTTPError: Raised if the API response status code is not 200 (OK).
 """
 
 import requests
+import time
 
-def trade(
+def setSides(
     api_key="ADD YOUR API KEY HERE",
     protocol="dhedge",
     pool="ADD YOUR POOL ADDRESS HERE",
@@ -39,21 +19,48 @@ def trade(
     max_usd=500,
     slippage=1,
     share=100,
-    platform="uniswapV3"
+    platform="uniswapV3",
+    retries=10,
+    retry_delay=30,
+    timeout=10
 ):
-    # Maps user-friendly side terms to API-compatible keys
+    """
+    Executes a GET request to the Infinite Trading API with specified parameters.
+
+    Parameters:
+        api_key (str): The API key required for authentication. Defaults to an initial key you must replace.
+        protocol (str): Identifier for the trading protocol, e.g., 'dhedge'. Defaults to 'dhedge'.
+        pool (str): The specific pool address to interact with. Must be specified by the user.
+        network (str): The blockchain network to use, e.g., 'polygon', 'optimism', 'base', 'arbitrum'. Defaults to 'polygon'.
+        pair (str): The trading pair to target, such as 'WBTC-USDC'. Must be specified by the user.
+        side (str): Desired trading position ('long', 'cash', or 'short'). Must be specified by the user.
+        threshold (float): Percentage threshold to trigger a trade to avoid excessive small trades. Defaults to 1.
+        max_usd (float): Maximum USD amount for the trade. Defaults to 500.
+        slippage (float): Maximum allowed slippage percentage. Defaults to 1.
+        share (float): Percentage of the total trade amount. Defaults to 100.
+        platform (str): The trading platform to use, e.g., 'uniswapV3'. Defaults to 'uniswapV3'.
+        retries (int): Number of retry attempts in case of timeout or no response. Defaults to 10.
+        retry_delay (int): Delay between retry attempts in seconds. Defaults to 30.
+        timeout (int): Timeout for the API request in seconds. Defaults to 10.
+
+    Returns:
+        dict: A dictionary containing the API response in JSON format if successful.
+
+    Raises:
+        ValueError: Raised if the 'side' parameter is invalid.
+        HTTPError: Raised if the API response status code is not 200 (OK).
+    """
+    
     side_mapping = {
         "long": "long",
         "cash": "neutral",
         "short": "short"
     }
     
-    # Validates and converts 'side' to an API-compatible key
     if side not in side_mapping:
         raise ValueError("Invalid side value. Must be 'long', 'cash', or 'short'.")
     side_api = side_mapping[side]
     
-    # Constructs the query parameters for the API request
     params = {
         "apiKey": api_key,
         "protocol": protocol,
@@ -68,29 +75,30 @@ def trade(
         "platform": platform
     }
     
-    # API endpoint URL
     endpoint = "https://api.infinitetrading.io/setBot"
     
-    # Performs the GET request with constructed parameters
-    response = requests.get(endpoint, params=params)
+    for attempt in range(retries):
+        try:
+            response = requests.get(endpoint, params=params, timeout=timeout)
+            response.raise_for_status()  # Raise an HTTPError for bad responses
+            if response.status_code == 200:
+                print("Trade executed successfully")
+                return response.json()
+        except requests.exceptions.Timeout:
+            print("Request timed out. Retrying...")
+        except requests.exceptions.HTTPError as err:
+            if response.status_code == 504:
+                print("Gateway Timeout. Retrying...")
+            else:
+                print(f"HTTP error occurred: {err}")
+                return {"error": response.status_code, "message": response.text}
+        except requests.exceptions.RequestException as err:
+            print(f"Request error occurred: {err}")
+        time.sleep(retry_delay)
     
-    # Validates the response status
-    if response.status_code != 200:
-        response.raise_for_status()
-    
-    return response.json()
+    print("Failed to change sides after multiple attempts.")
+    return {"error": "timeout", "message": "Failed to change sides after multiple attempts."}
 
 # Example usage
-
-# To buy WBTC
-response = trade(pair="WBTC-USDC", side="long")
-print(response)
-
-response = infinite_trading(side="long")
-# To short WBTC: 
-response = infinite_trading(side="short")
-
-# To go in cash (USDC)
-response = infinite_trading(side="cash")
-
+response = setSides(pair="WBTC-USDC", side="long")
 print(response)
