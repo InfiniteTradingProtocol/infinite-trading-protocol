@@ -1,6 +1,6 @@
 
 <p align="center">
-  <img src="https://github.com/InfiniteTradingProtocol/infinite-trading-protocol/blob/main/logos/Infinite_Trading_Protocol_Surface.png" alt="Infinite Trading Protocol Logo" width="400" height="400"/>
+  <img src="https://github.com/InfiniteTradingProtocol/infinite-trading-protocol/blob/main/logos/Infinite_Trading_Protocol_Surface.png" alt="Infinite Trading Protocol Logo" width="800" height="400"/>
 </p>
 
 ---
