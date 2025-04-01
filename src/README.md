@@ -1,6 +1,9 @@
+Here is the updated README with the new data for the TypeScript folder:
+
+```markdown
 # Infinite Trading Protocol - Source Code
 
-This repository contains various scripts and functions implemented in different programming languages to support the Infinite Trading Protocol. Below is a detailed description of the contents and functionalities of each script within the `/src` directory.
+This repository contains various scripts and functions implemented in different programming languages to support the Infinite Trading Protocol. Below is a detailed description of the contents and functionality.
 
 ## Contents
 
@@ -18,7 +21,11 @@ This repository contains various scripts and functions implemented in different 
 
 ### `/src/Typescript/`
 
-- `README.md`: Placeholder README indicating the presence of TypeScript functions.
+- `README.md`: Detailed descriptions of the TypeScript functions available in this folder.
+- `function1.ts`: Description of what function1.ts does.
+- `function2.ts`: Description of what function2.ts does.
+- **Subfolder `/utils/`**:
+  - `helper.ts`: Utility functions for common operations.
 
 ### `/src/python/`
 
@@ -52,5 +59,6 @@ Run any of the Python scripts using the following command:
 ```sh
 python <script_name>.py
 ```
+```
 
----
+You can update the `README.md` in the repository with this content.
