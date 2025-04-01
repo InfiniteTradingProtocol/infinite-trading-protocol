@@ -57,5 +57,3 @@ Run any of the Python scripts using the following command:
 python <script_name>.py
 ```
 ```
-
-You can update the `README.md` in the repository with this content.
