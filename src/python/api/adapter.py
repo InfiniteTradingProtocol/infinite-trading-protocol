@@ -25,7 +25,7 @@ def setSides(
     timeout=10
 ):
     """
-    Executes a GET request to the Infinite Trading API with specified parameters.
+    Executes a POST request to the Infinite Trading API with specified parameters.
 
     Parameters:
         api_key (str): The API key required for authentication. Defaults to an initial key you must replace.
@@ -79,7 +79,7 @@ def setSides(
     
     for attempt in range(retries):
         try:
-            response = requests.get(endpoint, params=params, timeout=timeout)
+            response = requests.post(endpoint, params=params, timeout=timeout)
             response.raise_for_status()  # Raise an HTTPError for bad responses
             if response.status_code == 200:
                 print("Trade executed successfully")
