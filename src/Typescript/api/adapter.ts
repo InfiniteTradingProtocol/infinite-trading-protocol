@@ -94,7 +94,7 @@ async function setSides({
 
     for (let attempt = 0; attempt < retries; attempt++) {
         try {
-            const response = await axios.get(endpoint, { params, timeout: timeout * 1000 });
+            const response = await axios.post(endpoint, { params, timeout: timeout * 1000 });
             if (response.status === 200) {
                 console.log('Trade executed successfully');
                 return response.data;
