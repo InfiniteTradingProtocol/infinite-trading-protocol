@@ -40,7 +40,7 @@ async function setSides({
     timeout = 10
 }: SetSidesParams): Promise<any> {
     /**
-     * Executes a GET request to the Infinite Trading API with specified parameters.
+     * Executes a POST request to the Infinite Trading API with specified parameters.
      *
      * Parameters:
      *     api_key (string): The API key required for authentication. Defaults to an initial key you must replace.
