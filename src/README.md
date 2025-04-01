@@ -1,4 +1,3 @@
-```markdown
 # Infinite Trading Protocol - Source Code
 
 This repository contains various scripts and functions implemented in different programming languages to support the Infinite Trading Protocol. Below is a detailed description of the contents and functionality.
