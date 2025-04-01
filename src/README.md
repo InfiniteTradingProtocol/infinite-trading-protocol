@@ -1,5 +1,3 @@
-Here is the updated README with the new data for the TypeScript folder:
-
 ```markdown
 # Infinite Trading Protocol - Source Code
 
