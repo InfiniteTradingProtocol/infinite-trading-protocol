@@ -1,4 +1,4 @@
-#' Executes a GET request to the Infinite Trading API with specified parameters.
+#' Executes a POST request to the Infinite Trading API with specified parameters.
 #'
 #' Author: etherpilled
 #' Organization: Infinite Trading
@@ -75,7 +75,7 @@ setSides <- function(
   
   for (attempt in seq_len(retries)) {
     tryCatch({
-      response <- GET(endpoint, query = params, timeout(timeout))
+      response <- POST(endpoint, query = params, timeout(timeout))
       if (status_code(response) == 200) {
         print("Sides changed successfully")
         return(content(response, "parsed"))
