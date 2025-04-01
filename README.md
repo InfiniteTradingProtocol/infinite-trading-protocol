@@ -27,106 +27,76 @@ The Infinite Trading Protocol API is designed to provide developers with the too
 
 ## Code Structure
 
-### Contracts
+### `/src` Directory
 
-The `contracts` directory contains Solidity smart contracts developed using the Foundry framework. Key features include:
+The `/src` directory contains various scripts and functions implemented in different programming languages to support the Infinite Trading Protocol. Below is a detailed description of the contents and functionalities of each script within the `/src` directory.
 
-- **Forge**: Compile, test, fuzz, format, and deploy smart contracts.
-- **Forge Std**: Collection of helpful contracts and utilities for testing.
-- **Prettier**: Code formatter for non-Solidity files.
-- **Solhint**: Linter for Solidity code.
+---
 
-#### Key Files
+#### `/src/R/`
 
-- `contracts/`: Contains all Solidity smart contracts.
-- `test/`: Contains test contracts for unit testing.
-- `.github/workflows/ci.yml`: GitHub Actions configuration for continuous integration.
+- **`dhedge_graphql.R`**: Interacts with the dHedge GraphQL API to fetch fund compositions and monitor vault deposits; sends alerts to Discord.
+- **`ds_price.R`**: Fetches price, price change, and liquidity data from DexScreener for various pairs.
+- **`itp_incentives_dexscreener.R`**: Fetches price, price change, and liquidity data from DexScreener for ITP pairs and calculates total incentives for each pool.
+- **`staking_yield.R`**: Generates a Staking Yield Per Epoch chart; calculates compound yield over several epochs.
+- **`tradfi_correlations.R`**: Retrieves financial data from traditional finance indices and calculates their correlations.
+- **Subfolder `/api/`**:
+  - **`adapter.R`**: Adapter script for API interactions.
 
-### Usage
+### `/src/Typescript/`
 
-#### Build
+- **`api/adapter.ts`**: Adapter script for API interactions using TypeScript and Axios.
 
-Build the contracts:
+### `/src/python/`
 
-```sh
-$ forge build
+- **`coinbase.py`**: Fetches historical OHLCV candle data from the Coinbase API for various trading pairs.
+- **`defi.py`**: Contains utility functions for DeFi operations across different networks, including fetching Uniswap fees, dHedge pool compositions, transaction status, and wallet balances.
+- **`itp_incentives_dexscreener.py`**: Fetches LP data from DexScreener and calculates total ITP incentives for each pool.
+- **Subfolder `/api/`**:
+  - **`adapter.py`**: Adapter script for API interactions using Python and Requests.
+
+---
+
+## Usage
+
+### R Scripts
+
+To use the R scripts, make sure you have the required packages installed in your R environment. You can install them using the following command:
+
+```R
+install.packages(c("tidyr", "ggplot2", "dplyr", "httr", "jsonlite", "PerformanceAnalytics", "quantmod", "xts"))
 ```
 
-#### Clean
+### Python Scripts
 
-Delete the build artifacts and cache directories:
-
-```sh
-$ forge clean
-```
-
-#### Compile
-
-Compile the contracts:
+To use the Python scripts, ensure you have Python installed on your system along with the necessary dependencies. You can install the dependencies using the following commands:
 
 ```sh
-$ forge build
+pip install requests pandas numpy
 ```
 
-#### Coverage
-
-Get a test coverage report:
+Run any of the Python scripts using the following command:
 
 ```sh
-$ forge coverage
+python <script_name>.py
 ```
 
-#### Deploy
+### TypeScript Scripts
 
-Deploy to Anvil:
+To use the TypeScript scripts, ensure you have Node.js and npm installed on your system along with the necessary dependencies. You can install the dependencies using the following command:
 
 ```sh
-$ forge script script/Deploy.s.sol --broadcast --fork-url http://localhost:8545
+npm install
 ```
 
-#### Format
-
-Format the contracts:
+Compile and run the TypeScript scripts using the following commands:
 
 ```sh
-$ forge fmt
+tsc <script_name>.ts
+node <script_name>.js
 ```
 
-#### Gas Usage
-
-Get a gas report:
-
-```sh
-$ forge test --gas-report
-```
-
-#### Lint
-
-Lint the contracts:
-
-```sh
-$ bun run lint
-```
-
-#### Test
-
-Run the tests:
-
-```sh
-$ forge test
-```
-
-Generate test coverage and output result to the terminal:
-
-```sh
-$ bun run test:coverage
-```
-
-Generate test coverage with lcov report:
-
-```sh
-$ bun run test:coverage:report
-```
+---
 
 ## Contributing
 
@@ -144,9 +114,7 @@ For support or any queries, please reach out to admin@infinitetrading.io, telegr
 
 ## Copyright
 
-Copyright (c) 2024 Infinite Trading. All rights reserved.
+Copyright (c) 2025 Infinite Trading. All rights reserved.
 
 Unauthorized copying of this file, via any medium is strictly prohibited.
 ```
-
-This improved README now includes detailed information about the code structure, key features, usage instructions, and more.
