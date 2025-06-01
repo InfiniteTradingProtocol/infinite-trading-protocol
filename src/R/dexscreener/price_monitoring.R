@@ -1,5 +1,5 @@
 # ------------------------------------------------------------------------------
-# File: price_monitor.R
+# File: price_monitoring.R
 # Author: etherpilled
 # Project: Infinite Trading Protocol
 #
