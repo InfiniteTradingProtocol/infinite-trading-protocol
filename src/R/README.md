@@ -2,6 +2,10 @@
 
 This folder contains various R scripts used in the Infinite Trading Protocol project. Below is a brief description of each script and its functionality.
 
+WE ARE MIGRATING AND IMPROVING THE R-SDK HERE: https://github.com/InfiniteTradingProtocol/Infinite-Trading-R-SDK-v1/tree/main
+
+THIS IS OUTDATED.
+
 ## Files
 
 ### staking_yield.R
