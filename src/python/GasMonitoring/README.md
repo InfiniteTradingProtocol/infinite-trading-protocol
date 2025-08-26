@@ -17,7 +17,7 @@ EVM Gas Balance with USD Estimate - A simple Python CLI that:
 
 ## 🚨 Threshold-Based Alerts
 
-Set a USD threshold for each network. Alerts will only be sent if the wallet’s USD value drops below the threshold.
+Set a USD threshold for each network. Alerts will only be sent if the wallet’s USD value drops below the threshold. This is very useful for managers using our API to automate trading from their gas wallets. Having balances on their gas wallets allows them to execute trades and the alerts can help them know when to refill the gas wallets when they are low to avoid interruptions on their services and trading.
 
 ### CLI Example
 
