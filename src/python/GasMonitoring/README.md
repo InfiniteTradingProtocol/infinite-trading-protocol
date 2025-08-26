@@ -1,5 +1,6 @@
-# Gas Balance Monitoring and Reporting (Discord/Telegram/Print) Tool — EVM Gas Balance with USD Estimate
+# Gas Balance Monitoring and Reporting (Discord/Telegram/Print) Tool
 
+EVM Gas Balance with USD Estimate
 A simple Python CLI that:
 - Fetches an address's **native gas balance** (ETH, POL, etc.) on **Ethereum, Polygon, Optimism,Base or Arbitrum** via the relevant *scan API.
 - Pulls a **live USD price** from any CCXT-supported exchange (default: Kraken).
