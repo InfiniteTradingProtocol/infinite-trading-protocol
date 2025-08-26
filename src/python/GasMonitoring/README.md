@@ -30,9 +30,7 @@ A simple Python CLI that:
 ## 🔧 Installation
 
 ```bash
-# Clone the repo
-git clone https://github.com/your-username/gas-tank.git
-cd gas-tank
+# Download the single script GasMonitoring.py to your machine into your project directory.
 
 # (Recommended) create a virtual environment
 python -m venv .venv
