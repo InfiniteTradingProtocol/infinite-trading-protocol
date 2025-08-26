@@ -1,4 +1,3 @@
-````markdown
 # Gas Tank — EVM Gas Balance with USD Estimate (stdout / Discord / Telegram)
 
 A simple Python CLI that:
