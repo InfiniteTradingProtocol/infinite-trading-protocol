@@ -1,0 +1,10 @@
+{
+  "exchange": "kraken",
+  "notify": ["stdout", "telegram"],
+  "monitors": [
+    { "name": "Treasury SAFE", "address": "0x0000000000000000000000000000000000000000", "network": "polygon" },
+    { "name": "Ops Wallet",    "address": "0x1111111111111111111111111111111111111111", "network": "ethereum" },
+    { "name": "L2 Router",     "address": "0x2222222222222222222222222222222222222222", "network": "optimism" },
+    { "name": "Bridge Wallet", "address": "0x3333333333333333333333333333333333333333", "network": "arbitrum" }
+  ]
+}
