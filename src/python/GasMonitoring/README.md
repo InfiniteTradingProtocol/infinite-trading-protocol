@@ -191,8 +191,3 @@ If using a `.env` file:
 MIT
 
 ```
-
----
-
-Would you like me to also give you a **ready-made `monitors.json` file** alongside this so you can commit it to the repo as an example?
-```
