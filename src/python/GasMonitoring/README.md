@@ -11,7 +11,7 @@ A simple Python CLI that:
 
 ## 🚀 Features
 - ✅ Minimal dependencies (`requests`, `ccxt`).
-- ✅ Supports `ethereum`, `mainnet`, `polygon`, `optimism`, `arbitrum`.
+- ✅ Supports `ethereum`, `mainnet`, `polygon`, `base`, `optimism`, `arbitrum`.
 - ✅ Automatic unit selection (`ETH` or `MATIC`).
 - ✅ Configurable outputs: console, Discord, Telegram.
 - ✅ Easy cron integration for multiple wallets.
