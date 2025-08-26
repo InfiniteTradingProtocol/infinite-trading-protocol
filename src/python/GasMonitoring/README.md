@@ -73,7 +73,7 @@ export TELEGRAM_CHAT_ID="123456789"      # your chat or channel id
 ## 🖥️ Usage (Single Wallet)
 
 ```bash
-python gas_tank.py "<name>" <address> <network> [--exchange binance] [--notify stdout,discord,telegram]
+python GasMonitoring.py "<name>" <address> <network> [--exchange binance] [--notify stdout,discord,telegram]
 ```
 
 * `<name>`: label (e.g. `"Treasury SAFE"`)
@@ -86,16 +86,16 @@ python gas_tank.py "<name>" <address> <network> [--exchange binance] [--notify s
 
 ```bash
 # stdout only
-python gas_tank.py "Treasury SAFE" 0x0000... polygon
+python GasMonitoring.py "Treasury SAFE" 0x0000... polygon
 
 # to Discord
-python gas_tank.py "Ops Wallet" 0x0000... ethereum --notify discord
+python GasMonitoring.py "Ops Wallet" 0x0000... ethereum --notify discord
 
 # to Telegram
-python gas_tank.py "Ops Wallet" 0x0000... optimism --notify telegram
+python GasMonitoring.py "Ops Wallet" 0x0000... optimism --notify telegram
 
 # stdout + both messengers
-python gas_tank.py "Ops Wallet" 0x0000... arbitrum --notify stdout,discord,telegram
+python GasMonitoring.py "Ops Wallet" 0x0000... arbitrum --notify stdout,discord,telegram
 ```
 
 **Sample Output**
@@ -125,13 +125,13 @@ Create a `monitors.json` (the example is available in this repository):
 Run it:
 
 ```bash
-python gas_tank.py --config monitors.json
+python GasMonitoring.py --config monitors.json
 ```
 
 Override defaults from CLI:
 
 ```bash
-python gas_tank.py --config monitors.json --notify discord,telegram --exchange binance
+python GasMonitoring.py --config monitors.json --notify discord,telegram --exchange binance
 ```
 
 ---
@@ -155,25 +155,25 @@ crontab -e
 **Every 15 minutes (stdout + Telegram)**:
 
 ```cron
-*/15 * * * * /usr/bin/env bash -lc 'cd /path/to/project && source .venv/bin/activate && python gas_tank.py --config monitors.json --notify stdout,telegram >> logs/gas_tank.log 2>&1'
+*/15 * * * * /usr/bin/env bash -lc 'cd /path/to/project && source .venv/bin/activate && python GasMonitoring.py --config monitors.json --notify stdout,telegram >> logs/gas_tank.log 2>&1'
 ```
 
 **Hourly (Discord only)**:
 
 ```cron
-0 * * * * /usr/bin/env bash -lc 'cd /path/to/project && source .venv/bin/activate && python gas_tank.py --config monitors.json --notify discord >> logs/gas_tank.log 2>&1'
+0 * * * * /usr/bin/env bash -lc 'cd /path/to/project && source .venv/bin/activate && python GasMonitoring.py --config monitors.json --notify discord >> logs/gas_tank.log 2>&1'
 ```
 
 **Weekdays at 9:00 (Coinbase exchange)**:
 
 ```cron
-0 9 * * 1-5 /usr/bin/env bash -lc 'cd /path/to/project && source .venv/bin/activate && CCXT_EXCHANGE=coinbase python gas_tank.py --config monitors.json >> logs/gas_tank.log 2>&1'
+0 9 * * 1-5 /usr/bin/env bash -lc 'cd /path/to/project && source .venv/bin/activate && CCXT_EXCHANGE=coinbase python GasMonitoring.py --config monitors.json >> logs/gas_tank.log 2>&1'
 ```
 
 If using a `.env` file:
 
 ```cron
-*/10 * * * * /usr/bin/env bash -lc 'cd /path/to/project && source .venv/bin/activate && source .env && python gas_tank.py --config monitors.json >> logs/gas_tank.log 2>&1'
+*/10 * * * * /usr/bin/env bash -lc 'cd /path/to/project && source .venv/bin/activate && source .env && python GasMonitoring.py --config monitors.json >> logs/gas_tank.log 2>&1'
 ```
 
 ---
@@ -181,7 +181,7 @@ If using a `.env` file:
 ## 📝 Notes
 
 * *Scan APIs return balances in 18-decimal units; this script converts to whole tokens.*
-* Polygon uses **MATIC** pricing; others use **ETH**.
+* Polygon uses **POL** pricing; others use **ETH**.
 * If price fetch fails, balance still prints with “USD estimate unavailable”.
 * For Telegram: ensure bot is added to group/channel with permission to post.
 * For Discord: create a channel webhook and set `DISCORD_WEBHOOK_URL`.
