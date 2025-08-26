@@ -3,14 +3,15 @@
 GasMonitoring.py — Check native gas balance (ETH/POL/etc.) for EVM wallets and show a USD estimate.
 Supports one-off checks or reading a JSON config with multiple wallets.
 Outputs can go to stdout, Discord, Telegram (or any combination).
+Now supports alerting only when balance falls below a per-network USD threshold.
 
 Quick usage:
-  python GasMonitoring.py "<name>" <address> <network>
+  python GasMonitoring.py "<name>" <address> <network> --threshold polygon=50,ethereum=100
   python GasMonitoring.py --config monitors.json
 
 Examples:
-  python GasMonitoring.py "Treasury SAFE" 0xabc... polygon
-  python GasMonitoring.py --config monitors.json --notify stdout,telegram
+  python GasMonitoring.py "Treasury SAFE" 0xabc... polygon --threshold polygon=50
+  python GasMonitoring.py --config monitors.json --threshold polygon=50,ethereum=100
 
 Networks:
   ethereum (alias: mainnet), polygon, optimism, arbitrum, base
@@ -29,15 +30,10 @@ import sys
 import json
 import argparse
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import requests
 import ccxt
-
-
-# ──────────────────────────────────────────────────────────────────────────────
-# Simple configuration
-# ──────────────────────────────────────────────────────────────────────────────
 
 SCAN_APIS: Dict[str, str] = {
     "ethereum": "https://api.etherscan.io/api",
@@ -59,57 +55,34 @@ SCAN_API_KEYS_ENV: Dict[str, str] = {
 
 DEFAULT_EXCHANGE = os.getenv("CCXT_EXCHANGE", "kraken")
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Data models
-# ──────────────────────────────────────────────────────────────────────────────
-
 @dataclass
 class Monitor:
     name: str
     address: str
     network: str  # ethereum/mainnet, polygon, optimism, arbitrum
 
-
-# ──────────────────────────────────────────────────────────────────────────────
-# Helpers: API calls
-# ──────────────────────────────────────────────────────────────────────────────
-
 def _scan_api_balance(address: str, network: str) -> float:
-    """
-    Get native token balance using the appropriate *scan API.
-    Returns balance in whole units (ETH/POL/etc.), assuming 18 decimals.
-    """
     net = network.lower()
     if net not in SCAN_APIS:
         raise ValueError("Invalid network. Use: ethereum/mainnet, polygon, optimism, arbitrum, base.")
-
     url = SCAN_APIS[net]
     params = {"module": "account", "action": "balance", "address": address, "tag": "latest"}
-
     key_env = SCAN_API_KEYS_ENV.get(net)
     api_key = os.getenv(key_env) if key_env else None
     if api_key:
         params["apikey"] = api_key
-
     resp = requests.get(url, params=params, timeout=30)
     if resp.status_code != 200:
         raise RuntimeError(f"{net} API call failed: HTTP {resp.status_code}")
     data = resp.json()
-
     if "result" not in data:
         raise RuntimeError(f"Unexpected {net} API response: {data}")
     return int(data["result"]) / 10**18
 
-
 def _dash_to_slash(sym: str) -> str:
     return sym.replace("-", "/")
 
-
 def get_last_price(pair: str, exchange_name: str = DEFAULT_EXCHANGE) -> Optional[float]:
-    """
-    Fetch last traded price from a CCXT exchange.
-    pair examples: ETH-USD, MATIC-USD
-    """
     symbol = _dash_to_slash(pair)
     try:
         exchange_cls = getattr(ccxt, exchange_name)
@@ -120,18 +93,10 @@ def get_last_price(pair: str, exchange_name: str = DEFAULT_EXCHANGE) -> Optional
     last = ticker.get("last")
     return float(last) if last is not None else None
 
-
-# ──────────────────────────────────────────────────────────────────────────────
-# Output sinks
-# ──────────────────────────────────────────────────────────────────────────────
-
 def print_stdout(message: str) -> None:
     print(message)
 
 def post_discord(message: str) -> None:
-    """
-    Post to Discord if DISCORD_WEBHOOK_URL is set.
-    """
     webhook = os.getenv("DISCORD_WEBHOOK_URL")
     if not webhook:
         return
@@ -143,9 +108,6 @@ def post_discord(message: str) -> None:
         print(f"[discord] exception: {e}", file=sys.stderr)
 
 def post_telegram(message: str) -> None:
-    """
-    Post to Telegram using Bot API if TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are set.
-    """
     token = os.getenv("TELEGRAM_BOT_TOKEN")
     chat_id = os.getenv("TELEGRAM_CHAT_ID")
     if not token or not chat_id:
@@ -159,51 +121,39 @@ def post_telegram(message: str) -> None:
     except Exception as e:
         print(f"[telegram] exception: {e}", file=sys.stderr)
 
-
-# ──────────────────────────────────────────────────────────────────────────────
-# Core logic
-# ──────────────────────────────────────────────────────────────────────────────
-
-def price_pair_for_network(network: str) -> tuple[str, str]:
-    """
-    Select the USD pair and the displayed unit given a network.
-    - polygon -> POL-USD, unit = POL
-    - others  -> ETH-USD,   unit = ETH
-    """
+def price_pair_for_network(network: str) -> Tuple[str, str]:
     net = network.lower()
     if net == "polygon":
         return "POL-USD", "POL"
     return "ETH-USD", "ETH"
 
-def describe_balance(mon: Monitor, exchange_name: str = DEFAULT_EXCHANGE) -> str:
+def describe_balance(mon: Monitor, exchange_name: str = DEFAULT_EXCHANGE) -> Tuple[str, Optional[float]]:
     """
     Fetch balance and build a human-friendly single-line message.
+    Returns tuple of (message, usd_value or None).
     """
     pair, unit = price_pair_for_network(mon.network)
     bal = _scan_api_balance(mon.address, mon.network)
     last = get_last_price(pair, exchange_name)
     if last is None:
-        return (
+        msg = (
             f"Gas balance for {mon.name} ({mon.address}) on {mon.network}: "
             f"{round(bal, 6)} {unit} (USD estimate unavailable)"
         )
+        return msg, None
 
     usd = round(bal * last, 2)
     if unit == "POL":
         qty = round(bal, 2)
     else:
         qty = round(bal, 4)
-
-    return (
+    msg = (
         f"Gas balance for {mon.name} ({mon.address}) on {mon.network}: "
         f"{qty} {unit} (${usd})"
     )
+    return msg, usd
 
 def send_notifications(message: str, sinks: List[str]) -> None:
-    """
-    Send the message to all chosen sinks.
-    sinks can contain: 'stdout', 'discord', 'telegram'
-    """
     normalized = {s.strip().lower() for s in sinks}
     if "stdout" in normalized:
         print_stdout(message)
@@ -212,18 +162,23 @@ def send_notifications(message: str, sinks: List[str]) -> None:
     if "telegram" in normalized:
         post_telegram(message)
 
-
-# ──────────────────────────────────────────────────────────────────────────────
-# CLI
-# ──────────────────────────────────────────────────────────────────────────────
+def parse_threshold_arg(thresh_arg: Optional[str]) -> Dict[str, float]:
+    """Parse CLI threshold arg: polygon=50,ethereum=100"""
+    result: Dict[str, float] = {}
+    if thresh_arg:
+        for item in thresh_arg.split(","):
+            if "=" in item:
+                net, val = item.split("=", 1)
+                try:
+                    result[net.strip().lower()] = float(val.strip())
+                except Exception:
+                    continue
+    return result
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(
-        description="Check EVM gas balances with a USD estimate; supports multiple monitors via JSON."
+        description="Check EVM gas balances with a USD estimate; supports multiple monitors via JSON. Sends alerts only if below threshold."
     )
-    # Two modes:
-    # (A) Single: name address network
-    # (B) Config: --config monitors.json
     p.add_argument("name", nargs="?", help="Label for the address (e.g., 'Treasury SAFE').")
     p.add_argument("address", nargs="?", help="The wallet address (0x...).")
     p.add_argument("network", nargs="?", help="ethereum/mainnet, polygon, optimism, arbitrum.")
@@ -234,40 +189,51 @@ def parse_args() -> argparse.Namespace:
         default="stdout",
         help="Comma-separated outputs: stdout,discord,telegram (default: stdout)."
     )
+    p.add_argument(
+        "--threshold",
+        default=None,
+        help="Comma-separated per-network USD thresholds, e.g. polygon=50,ethereum=100"
+    )
     return p.parse_args()
 
-def load_monitors_from_json(path: str) -> List[Monitor]:
-    """
-    Expect a JSON file like:
-    {
-      "exchange": "kraken",
-      "notify": ["stdout","discord","telegram"],
-      "monitors": [
-        {"name": "Treasury", "address": "0xabc...", "network": "polygon"},
-        {"name": "Ops", "address": "0xdef...", "network": "ethereum"}
-      ]
-    }
-    """
+def load_monitors_from_json(path: str) -> Tuple[List[Monitor], Dict[str, float]]:
     with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
+    monitors = [
+        Monitor(name=m["name"], address=m["address"], network=m["network"])
+        for m in data.get("monitors", [])
+    ]
+    thresholds: Dict[str, float] = {}
+    # Optional: thresholds config
+    if "thresholds" in data and isinstance(data["thresholds"], dict):
+        for net, val in data["thresholds"].items():
+            try:
+                thresholds[net.strip().lower()] = float(val)
+            except Exception:
+                continue
+    return monitors, thresholds
 
-    monitors = []
-    for m in data.get("monitors", []):
-        monitors.append(Monitor(name=m["name"], address=m["address"], network=m["network"]))
-    return monitors
+def should_alert(network: str, usd_value: Optional[float], thresholds: Dict[str, float]) -> bool:
+    net = network.lower()
+    threshold = thresholds.get(net)
+    # If no threshold set, always alert
+    if threshold is None or usd_value is None:
+        return True
+    # Alert only if balance is below threshold
+    return usd_value < threshold
 
 def main() -> None:
     args = parse_args()
     sinks = [s.strip() for s in args.notify.split(",") if s.strip()]
     exchange_name = args.exchange
+    cli_thresholds = parse_threshold_arg(args.threshold)
 
     # Config mode (multiple monitors)
     if args.config:
-        monitors = load_monitors_from_json(args.config)
+        monitors, config_thresholds = load_monitors_from_json(args.config)
         if not monitors:
             print("No monitors found in config.", file=sys.stderr)
             sys.exit(1)
-
         # allow notify/exchange overrides via config fields (optional)
         try:
             with open(args.config, "r", encoding="utf-8") as f:
@@ -279,28 +245,32 @@ def main() -> None:
         except Exception:
             pass  # keep CLI-provided values
 
+        # Use CLI thresholds if provided, else config thresholds
+        thresholds = cli_thresholds if cli_thresholds else config_thresholds
         for mon in monitors:
             try:
-                msg = describe_balance(mon, exchange_name=exchange_name)
-                send_notifications(msg, sinks)
+                msg, usd = describe_balance(mon, exchange_name=exchange_name)
+                if should_alert(mon.network, usd, thresholds):
+                    send_notifications(msg, sinks)
             except Exception as e:
                 print(f"[error] {mon.name} ({mon.address}) on {mon.network}: {e}", file=sys.stderr)
         return
 
     # Single-target mode
     if not (args.name and args.address and args.network):
-        print("Usage (single): python gas_tank.py \"<name>\" <address> <network>", file=sys.stderr)
-        print("Or (config):    python gas_tank.py --config monitors.json", file=sys.stderr)
+        print("Usage (single): python GasMonitoring.py \"<name>\" <address> <network> [--threshold polygon=50]", file=sys.stderr)
+        print("Or (config):    python GasMonitoring.py --config monitors.json [--threshold polygon=50,ethereum=100]", file=sys.stderr)
         sys.exit(2)
 
     mon = Monitor(name=args.name, address=args.address, network=args.network)
+    thresholds = cli_thresholds
     try:
-        msg = describe_balance(mon, exchange_name=exchange_name)
-        send_notifications(msg, sinks)
+        msg, usd = describe_balance(mon, exchange_name=exchange_name)
+        if should_alert(mon.network, usd, thresholds):
+            send_notifications(msg, sinks)
     except Exception as e:
         print(f"[error] {mon.name} ({mon.address}) on {mon.network}: {e}", file=sys.stderr)
         sys.exit(1)
-
 
 if __name__ == "__main__":
     main()
