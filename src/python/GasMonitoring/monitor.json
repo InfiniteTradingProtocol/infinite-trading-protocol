@@ -1,11 +1,14 @@
 {
   "exchange": "kraken",
   "notify": ["stdout", "telegram"],
+  "thresholds": {
+    "polygon": 50,
+    "ethereum": 100,
+    "optimism": 25
+  },
   "monitors": [
-    { "name": "Gas Wallet Polygon", "address": "0x0000000000000000000000000000000000000000", "network": "polygon" },
-    { "name": "Gas Wallet Ethereum", "address": "0x1111111111111111111111111111111111111111", "network": "ethereum" },
-    { "name": "Gas Wallet Optimism",     "address": "0x2222222222222222222222222222222222222222", "network": "optimism" },
-    { "name": "Gas Wallet Arbitrum", "address": "0x3333333333333333333333333333333333333333", "network": "arbitrum" }
-    { "name": "Gas Wallet Base", "address": "0x3333333333333333333333333333333333333333", "network": "base" }
+    { "name": "Treasury SAFE", "address": "0x0000...", "network": "polygon" },
+    { "name": "Ops Wallet",    "address": "0x1111...", "network": "ethereum" },
+    { "name": "L2 Router",     "address": "0x2222...", "network": "optimism" }
   ]
 }
