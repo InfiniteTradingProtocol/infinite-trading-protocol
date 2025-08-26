@@ -1,22 +1,22 @@
 #!/usr/bin/env python3
 """
-gas_tank.py — Check native gas balance (ETH/MATIC/etc.) for EVM wallets and show a USD estimate.
+GasMonitoring.py — Check native gas balance (ETH/POL/etc.) for EVM wallets and show a USD estimate.
 Supports one-off checks or reading a JSON config with multiple wallets.
 Outputs can go to stdout, Discord, Telegram (or any combination).
 
 Quick usage:
-  python gas_tank.py "<name>" <address> <network>
-  python gas_tank.py --config monitors.json
+  python GasMonitoring.py "<name>" <address> <network>
+  python GasMonitoring.py --config monitors.json
 
 Examples:
-  python gas_tank.py "Treasury SAFE" 0xabc... polygon
-  python gas_tank.py --config monitors.json --notify stdout,telegram
+  python GasMonitoring.py "Treasury SAFE" 0xabc... polygon
+  python GasMonitoring.py --config monitors.json --notify stdout,telegram
 
 Networks:
-  ethereum (alias: mainnet), polygon, optimism, arbitrum
+  ethereum (alias: mainnet), polygon, optimism, arbitrum, base
 
 Environment (recommended):
-  ETHERSCAN_API_KEY, POLYGONSCAN_API_KEY, OPTIMISM_ETHERSCAN_API_KEY, ARBISCAN_API_KEY
+  ETHERSCAN_API_KEY, POLYGONSCAN_API_KEY, OPTIMISM_ETHERSCAN_API_KEY, ARBISCAN_API_KEY, BASESCAN_API_KEY
   DISCORD_WEBHOOK_URL
   TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
   CCXT_EXCHANGE (default: kraken)
@@ -45,6 +45,7 @@ SCAN_APIS: Dict[str, str] = {
     "polygon":  "https://api.polygonscan.com/api",
     "optimism": "https://api-optimistic.etherscan.io/api",
     "arbitrum": "https://api.arbiscan.io/api",
+    "base": "https://api.basescan.io/api",  
 }
 
 SCAN_API_KEYS_ENV: Dict[str, str] = {
@@ -53,6 +54,7 @@ SCAN_API_KEYS_ENV: Dict[str, str] = {
     "polygon":  "POLYGONSCAN_API_KEY",
     "optimism": "OPTIMISM_ETHERSCAN_API_KEY",
     "arbitrum": "ARBISCAN_API_KEY",
+    "base": "BASESCAN_API_KEY",
 }
 
 DEFAULT_EXCHANGE = os.getenv("CCXT_EXCHANGE", "kraken")
@@ -75,11 +77,11 @@ class Monitor:
 def _scan_api_balance(address: str, network: str) -> float:
     """
     Get native token balance using the appropriate *scan API.
-    Returns balance in whole units (ETH/MATIC/etc.), assuming 18 decimals.
+    Returns balance in whole units (ETH/POL/etc.), assuming 18 decimals.
     """
     net = network.lower()
     if net not in SCAN_APIS:
-        raise ValueError("Invalid network. Use: ethereum/mainnet, polygon, optimism, arbitrum.")
+        raise ValueError("Invalid network. Use: ethereum/mainnet, polygon, optimism, arbitrum, base.")
 
     url = SCAN_APIS[net]
     params = {"module": "account", "action": "balance", "address": address, "tag": "latest"}
@@ -165,12 +167,12 @@ def post_telegram(message: str) -> None:
 def price_pair_for_network(network: str) -> tuple[str, str]:
     """
     Select the USD pair and the displayed unit given a network.
-    - polygon -> MATIC-USD, unit = MATIC
+    - polygon -> POL-USD, unit = POL
     - others  -> ETH-USD,   unit = ETH
     """
     net = network.lower()
     if net == "polygon":
-        return "MATIC-USD", "MATIC"
+        return "POL-USD", "POL"
     return "ETH-USD", "ETH"
 
 def describe_balance(mon: Monitor, exchange_name: str = DEFAULT_EXCHANGE) -> str:
@@ -187,7 +189,7 @@ def describe_balance(mon: Monitor, exchange_name: str = DEFAULT_EXCHANGE) -> str
         )
 
     usd = round(bal * last, 2)
-    if unit == "MATIC":
+    if unit == "POL":
         qty = round(bal, 2)
     else:
         qty = round(bal, 4)
