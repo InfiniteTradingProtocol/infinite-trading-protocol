@@ -1,7 +1,7 @@
 # Gas Balance Monitoring and Reporting (Discord/Telegram/Print) Tool — EVM Gas Balance with USD Estimate
 
 A simple Python CLI that:
-- Fetches an address's **native gas balance** (ETH, MATIC, etc.) on **Ethereum, Polygon, Optimism,Base or Arbitrum** via the relevant *scan API.
+- Fetches an address's **native gas balance** (ETH, POL, etc.) on **Ethereum, Polygon, Optimism,Base or Arbitrum** via the relevant *scan API.
 - Pulls a **live USD price** from any CCXT-supported exchange (default: Kraken).
 - Outputs results to **stdout**, **Discord**, **Telegram**, or all three.
 - Supports monitoring **multiple wallets/networks** from a JSON config file.
@@ -12,7 +12,7 @@ A simple Python CLI that:
 ## 🚀 Features
 - ✅ Minimal dependencies (`requests`, `ccxt`).
 - ✅ Supports `ethereum`, `mainnet`, `polygon`, `base`, `optimism`, `arbitrum`.
-- ✅ Automatic unit selection (`ETH` or `MATIC`).
+- ✅ Automatic unit selection (`ETH` or `POL`).
 - ✅ Configurable outputs: console, Discord, Telegram.
 - ✅ Easy cron integration for multiple wallets.
 
@@ -22,7 +22,7 @@ A simple Python CLI that:
 - Python **3.9+**
 - A *scan API key* (Etherscan, Polygonscan, etc.) is **recommended** to avoid rate limits.
 - Network access to:
-  - Etherscan / Polygonscan / OptimismScan / Arbiscan / Basescan
+  - Etherscan / Polygonscan / OptimismScan / Arbiscan / Basescan 
   - Your chosen CCXT exchange (Kraken, Coinbase, Binance, etc.)
 
 ---
@@ -101,7 +101,7 @@ python gas_tank.py "Ops Wallet" 0x0000... arbitrum --notify stdout,discord,teleg
 **Sample Output**
 
 ```
-Gas balance for Treasury SAFE (0x...) on polygon: 123.45 MATIC ($76.54)
+Gas balance for Treasury SAFE (0x...) on polygon: 123.45 POL ($76.54)
 ```
 
 ---
