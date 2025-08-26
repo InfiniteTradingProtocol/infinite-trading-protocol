@@ -106,7 +106,7 @@ Gas balance for Treasury SAFE (0x...) on polygon: 123.45 MATIC ($76.54)
 
 ## 📑 Monitoring Multiple Wallets
 
-Create a `monitors.json`:
+Create a `monitors.json` (the example is available in this repository):
 
 ```json
 {
