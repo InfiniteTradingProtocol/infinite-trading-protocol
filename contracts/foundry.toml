@@ -14,6 +14,7 @@
   solc = "0.8.26"
   src = "src"
   test = "test"
+  via_ir = true
 
 [profile.ci]
   fuzz = { runs = 10_000 }
@@ -21,7 +22,8 @@
 
 [etherscan]
   optimism = { key = "${API_KEY_OPTIMISTIC_ETHERSCAN}" }
-  
+  base = { key = "${BASE_ETHERSCAN_API_KEY}", url = "https://api.basescan.org/api" }
+
 [fmt]
   bracket_spacing = true
   int_types = "long"
@@ -34,4 +36,4 @@
 
 [rpc_endpoints]
   optimism = "https://rpc.ankr.com/optimism/4eeadba2304043bf70e6faa9a41b2123b70e3d1d63660adb047f03335d7627a5"
-  
+  base = "${BASE_RPC_URL}"
