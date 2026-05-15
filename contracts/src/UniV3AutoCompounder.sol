@@ -397,6 +397,7 @@ contract UniV3AutoCompounder {
         if (totalShares == 0) {
             shares = uint256(liquidityAdded);
         } else {
+            require(liquidityBefore > 0, "Invariant: shares exist but no liquidity");
             shares = (uint256(liquidityAdded) * totalShares) / liquidityBefore;
         }
         totalShares += shares;
@@ -422,6 +423,7 @@ contract UniV3AutoCompounder {
 
         uint256 totalLiquidity = _getTotalLiquidity();
         uint128 liquidityToRemove = uint128((shareAmount * totalLiquidity) / totalShares);
+        require(liquidityToRemove > 0, "Share amount too small");
 
         // Effects before interactions (CEI pattern)
         totalShares -= shareAmount;
@@ -478,6 +480,7 @@ contract UniV3AutoCompounder {
 
         uint256 totalLiquidity = _getTotalLiquidity();
         uint128 liquidityToRemove = uint128((shareAmount * totalLiquidity) / totalShares);
+        require(liquidityToRemove > 0, "Share amount too small");
 
         // Effects before interactions (CEI)
         totalShares -= shareAmount;
@@ -671,6 +674,7 @@ contract UniV3AutoCompounder {
         if (totalShares == 0) {
             shares = uint256(liquidityAdded);
         } else {
+            require(liquidityBefore > 0, "Invariant: shares exist but no liquidity");
             shares = (uint256(liquidityAdded) * totalShares) / liquidityBefore;
         }
         totalShares            += shares;
