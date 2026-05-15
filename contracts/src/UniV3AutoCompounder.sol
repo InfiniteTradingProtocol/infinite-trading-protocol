@@ -239,8 +239,8 @@ contract UniV3AutoCompounder {
     // ── Immutables set at deployment ──────────────────────────────────────────
     address public immutable token0;   // lower-address token of the pair
     address public immutable token1;   // higher-address token of the pair
-    uint24  public immutable poolFee;  // Uniswap pool fee tier (e.g. 3000, 500, 10000)
-    address public immutable pool;     // Uniswap V3 pool address
+    uint24  public poolFee;  // Uniswap pool fee tier (e.g. 500, 3000, 10000) – updatable by owner
+    address public pool;     // Uniswap V3 pool address – updatable by owner
 
     // ── Fee configuration ─────────────────────────────────────────────────────
     /// @dev 1.5% to DAO, 0.5% to executor, 98% re-added as liquidity (total 2%)
@@ -256,8 +256,8 @@ contract UniV3AutoCompounder {
     mapping(address => bool) public isKeeper; // addresses authorised to call compound()
 
     // ── TWAP oracle parameters ────────────────────────────────────────────────
-    uint32 public twapPeriod    = 30 minutes; // lookback window for time-weighted average price
-    uint16 public maxSlippageBps = 50;        // maximum swap slippage (50 bps = 0.5%)
+    uint32 public twapPeriod    = 60;   // lookback window for TWAP oracle (seconds); 60s suits low-activity pools
+    uint16 public maxSlippageBps = 200; // maximum swap slippage (200 bps = 2%); covers 1% pool fee + price impact
 
     // ── Share accounting ──────────────────────────────────────────────────────
     uint256 public totalShares;
@@ -274,7 +274,9 @@ contract UniV3AutoCompounder {
     event PositionReceived(uint256 tokenId);
     event TwapPeriodUpdated(uint32 newPeriod);
     event MaxSlippageUpdated(uint16 newBps);
+    event PoolUpdated(address newPool, uint24 newPoolFee);
     event ZappedIn(address indexed user, address indexed tokenIn, uint256 amountIn, uint256 zapFee, uint128 liquidityAdded, uint256 shares);
+    event ZappedOut(address indexed user, address indexed tokenOut, uint256 shares, uint256 amountOut, uint256 zapFee);
 
     // ── Modifiers ─────────────────────────────────────────────────────────────
     modifier onlyKeeper() {
@@ -452,12 +454,87 @@ contract UniV3AutoCompounder {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    //  Zap – single-token entry from token0
+    //  Zap Out – single-token exit
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// @notice Burn `shareAmount` shares, receive everything as a single token.
+    ///         Both underlying tokens are collected, the unwanted one is swapped
+    ///         to `tokenOut`, a 0.3% DAO fee is deducted from the final output,
+    ///         and the remainder is sent to the caller.
+    ///
+    /// @param shareAmount  Number of shares to redeem.
+    /// @param tokenOut     Either token0 or token1 – the token you want back.
+    /// @param slippageBps  Swap slippage in bps. Pass 0 to use maxSlippageBps.
+    function zapOut(
+        uint256 shareAmount,
+        address tokenOut,
+        uint16  slippageBps
+    ) external returns (uint256 amountOut) {
+        require(userShares[msg.sender] >= shareAmount, "Insufficient shares");
+        require(tokenOut == token0 || tokenOut == token1, "Unsupported token");
+
+        uint16 slip = slippageBps == 0 ? maxSlippageBps : slippageBps;
+        require(slip <= 500, "Slippage too high");
+
+        uint256 totalLiquidity = _getTotalLiquidity();
+        uint128 liquidityToRemove = uint128((shareAmount * totalLiquidity) / totalShares);
+
+        // Effects before interactions (CEI)
+        totalShares -= shareAmount;
+        userShares[msg.sender] -= shareAmount;
+
+        // Remove the proportional liquidity to this contract
+        (uint256 amount0, uint256 amount1) = INonfungiblePositionManager(POSITION_MANAGER).decreaseLiquidity(
+            INonfungiblePositionManager.DecreaseLiquidityParams({
+                tokenId:    tokenId,
+                liquidity:  liquidityToRemove,
+                amount0Min: 0,
+                amount1Min: 0,
+                deadline:   block.timestamp + 600
+            })
+        );
+
+        INonfungiblePositionManager(POSITION_MANAGER).collect(
+            INonfungiblePositionManager.CollectParams({
+                tokenId:    tokenId,
+                recipient:  address(this),
+                amount0Max: uint128(amount0),
+                amount1Max: uint128(amount1)
+            })
+        );
+
+        // Swap the unwanted token into tokenOut
+        if (tokenOut == token1) {
+            // Want token1 – swap all token0 proceeds to token1
+            if (amount0 > 0) {
+                amount1 += _swapWithSlippage(token0, token1, amount0, slip);
+            }
+            amountOut = amount1;
+        } else {
+            // Want token0 – swap all token1 proceeds to token0
+            if (amount1 > 0) {
+                amount0 += _swapWithSlippage(token1, token0, amount1, slip);
+            }
+            amountOut = amount0;
+        }
+
+        // 0.3% DAO zap fee taken from the output
+        uint256 zapFee = amountOut * ZAP_FEE_BPS / 10_000;
+        if (zapFee > 0) require(IERC20(tokenOut).transfer(dao, zapFee), "zap fee failed");
+        amountOut -= zapFee;
+
+        require(IERC20(tokenOut).transfer(msg.sender, amountOut), "transfer failed");
+
+        emit ZappedOut(msg.sender, tokenOut, shareAmount, amountOut, zapFee);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  Zap In – single-token entry
     // ─────────────────────────────────────────────────────────────────────────
 
     /// @notice Single-token entry into the vault.
     ///         Accepts either token0 or token1, deducts a 0.3% DAO fee, swaps
-    ///         50% to the other token, then adds both as liquidity.
+    ///         to the optimal ratio for the position, then adds both as liquidity.
     ///
     /// @param tokenIn     Either token0 or token1.
     /// @param amountIn    Amount of tokenIn to zap in.
@@ -829,17 +906,27 @@ contract UniV3AutoCompounder {
     }
 
     /// @dev Derive the time-weighted average tick over `twapPeriod` seconds.
-    ///      Calls pool.observe() and computes floor(tickDelta / period).
+    ///      Falls back to the current spot tick if the pool's observation buffer
+    ///      doesn't cover the full twapPeriod yet (reverts with "OLD").
     function _getTwapTick() internal view returns (int24 twapTick) {
         uint32[] memory secondsAgos = new uint32[](2);
         secondsAgos[0] = twapPeriod;
         secondsAgos[1] = 0;
-        (int56[] memory tickCumulatives, ) = IUniswapV3Pool(pool).observe(secondsAgos);
-        int56 tickDelta  = tickCumulatives[1] - tickCumulatives[0];
-        int56 period     = int56(uint56(twapPeriod));
-        twapTick = int24(tickDelta / period);
-        // Solidity truncates toward zero; apply floor division for negative deltas
-        if (tickDelta < 0 && tickDelta % period != 0) twapTick--;
+
+        // Try the full TWAP window; fall back to spot tick if the pool is too new.
+        try IUniswapV3Pool(pool).observe(secondsAgos) returns (
+            int56[] memory tickCumulatives,
+            uint160[] memory
+        ) {
+            int56 tickDelta = tickCumulatives[1] - tickCumulatives[0];
+            int56 period    = int56(uint56(twapPeriod));
+            twapTick = int24(tickDelta / period);
+            // Solidity truncates toward zero; apply floor division for negative deltas
+            if (tickDelta < 0 && tickDelta % period != 0) twapTick--;
+        } catch {
+            // Pool observation history too short – use spot tick from slot0.
+            (, twapTick, , , , , ) = IUniswapV3Pool(pool).slot0();
+        }
     }
 
     /// @dev Compute the minimum acceptable output for a swap using the TWAP price
@@ -866,8 +953,11 @@ contract UniV3AutoCompounder {
             rawOut = FullMath.mulDiv(amountIn, Q96, price96);
         }
 
-        // Apply slippage tolerance
-        return rawOut * (10_000 - slippageBps) / 10_000;
+        // Apply slippage tolerance AND deduct the pool's own fee so the floor
+        // reflects what actually arrives after the 1% pool fee is taken.
+        // poolFee is in units of 1/1_000_000 (e.g. 10000 = 1%).
+        uint256 afterPoolFee = rawOut * (1_000_000 - uint256(poolFee)) / 1_000_000;
+        return afterPoolFee * (10_000 - slippageBps) / 10_000;
     }
 
     // _returnDust removed – deposit() now uses snapshot-based dust return.
@@ -908,6 +998,17 @@ contract UniV3AutoCompounder {
         require(_twapPeriod >= 60, "TWAP too short");
         twapPeriod = _twapPeriod;
         emit TwapPeriodUpdated(_twapPeriod);
+    }
+
+    /// @notice Point the vault at a different Uniswap V3 pool for the same token pair.
+    ///         Use this when liquidity migrates to a new fee tier.
+    ///         The new pool must contain token0 and token1.
+    function setPool(address _pool, uint24 _poolFee) external onlyOwner {
+        require(_pool != address(0), "Zero pool address");
+        require(_poolFee == 100 || _poolFee == 500 || _poolFee == 3000 || _poolFee == 10000, "Invalid fee tier");
+        pool    = _pool;
+        poolFee = _poolFee;
+        emit PoolUpdated(_pool, _poolFee);
     }
 
     /// @notice Update the maximum swap slippage tolerance. Maximum 500 bps (5%).

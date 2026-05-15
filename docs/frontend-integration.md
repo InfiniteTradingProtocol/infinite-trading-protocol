@@ -4,13 +4,13 @@
 
 | Property | Value |
 |---|---|
-| **Contract** | `0x77D12D13e0344Dac52862f2475ccd78F8de82FbB` |
+| **Contract** | `0x44f1F33fA17C8Bd369E22f4D162aa049CdBc877B` |
 | **Chain** | Base mainnet (chain ID `8453`) |
-| **Basescan** | https://basescan.org/address/0x77D12D13e0344Dac52862f2475ccd78F8de82FbB |
+| **Basescan** | https://basescan.org/address/0x44f1F33fA17C8Bd369E22f4D162aa049CdBc877B |
 | **Token0 (USDC)** | `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` |
 | **Token1 (ITP)** | `0xBA8CD87120aCA631F59231f9fD6c5469BbEE3440` |
 | **Uniswap V3 Pool** | `0x16A1E7F62b702d84AAa0D1f534121DE9d17B0E18` |
-| **Pool fee tier** | `1000` (0.1%) |
+| **Pool fee tier** | `10000` (1%) |
 | **ITP DAO** | `0xb5dB6e5a301E595B76F40319896a8dbDc277CEfB` |
 
 ---
@@ -96,6 +96,29 @@
   {
     "name": "maxSlippageBps",   "type": "function", "stateMutability": "view",
     "inputs": [], "outputs": [{ "type": "uint16" }]
+  },
+  {
+    "name": "poolFee", "type": "function", "stateMutability": "view",
+    "inputs": [], "outputs": [{ "type": "uint24" }]
+  },
+  {
+    "name": "pool",    "type": "function", "stateMutability": "view",
+    "inputs": [], "outputs": [{ "type": "address" }]
+  },
+  {
+    "name": "setPool", "type": "function", "stateMutability": "nonpayable",
+    "inputs": [
+      { "name": "_pool",    "type": "address" },
+      { "name": "_poolFee", "type": "uint24"  }
+    ],
+    "outputs": []
+  },
+  {
+    "name": "PoolUpdated", "type": "event",
+    "inputs": [
+      { "name": "newPool",    "type": "address", "indexed": false },
+      { "name": "newPoolFee", "type": "uint24",  "indexed": false }
+    ]
   },
   {
     "name": "isKeeper",         "type": "function", "stateMutability": "view",
@@ -184,7 +207,7 @@ The primary entry point for most users. Accepts either USDC or ITP, swaps to the
 
 **Example (ethers.js v6):**
 ```ts
-const VAULT = "0x77D12D13e0344Dac52862f2475ccd78F8de82FbB";
+const VAULT = "0x44f1F33fA17C8Bd369E22f4D162aa049CdBc877B";
 const USDC  = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
 
 // Approve first
@@ -394,7 +417,7 @@ One file to import everywhere — keeps all addresses in a single place.
 // lib/contracts.ts
 import { parseUnits } from 'viem'
 
-export const VAULT_ADDRESS = '0x77D12D13e0344Dac52862f2475ccd78F8de82FbB' as const
+export const VAULT_ADDRESS = '0x44f1F33fA17C8Bd369E22f4D162aa049CdBc877B' as const
 export const USDC_ADDRESS  = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' as const
 export const ITP_ADDRESS   = '0xBA8CD87120aCA631F59231f9fD6c5469BbEE3440' as const
 export const POOL_ADDRESS  = '0x16A1E7F62b702d84AAa0D1f534121DE9d17B0E18' as const
@@ -458,6 +481,18 @@ export const VAULT_ABI = [
     inputs: [], outputs: [{ type: 'uint256' }] },
   { name: 'maxSlippageBps', type: 'function', stateMutability: 'view',
     inputs: [], outputs: [{ type: 'uint16' }] },
+  { name: 'poolFee', type: 'function', stateMutability: 'view',
+    inputs: [], outputs: [{ type: 'uint24' }] },
+  { name: 'pool',    type: 'function', stateMutability: 'view',
+    inputs: [], outputs: [{ type: 'address' }] },
+  { name: 'setPool', type: 'function', stateMutability: 'nonpayable',
+    inputs: [{ name: '_pool', type: 'address' }, { name: '_poolFee', type: 'uint24' }],
+    outputs: [] },
+  { name: 'PoolUpdated', type: 'event',
+    inputs: [
+      { name: 'newPool',    type: 'address', indexed: false },
+      { name: 'newPoolFee', type: 'uint24',  indexed: false },
+    ] },
   // -- events --
   { name: 'ZappedIn', type: 'event',
     inputs: [
@@ -1011,7 +1046,7 @@ To add a second auto-compounder vault (e.g. WETH/ITP), create a new constants ob
 // lib/vaults.ts
 export const VAULTS = {
   'usdc-itp': {
-    address: '0x77D12D13e0344Dac52862f2475ccd78F8de82FbB',
+    address: '0x44f1F33fA17C8Bd369E22f4D162aa049CdBc877B',
     token0: { address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', symbol: 'USDC', decimals: 6 },
     token1: { address: '0xBA8CD87120aCA631F59231f9fD6c5469BbEE3440', symbol: 'ITP',  decimals: 18 },
     pool:   '0x16A1E7F62b702d84AAa0D1f534121DE9d17B0E18',

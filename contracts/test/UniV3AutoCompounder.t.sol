@@ -633,4 +633,109 @@ contract UniV3AutoCompounderTest is Test {
         console.log("Zap shares    (USER2):  ", zapShares);
         console.log("Total shares:           ", vault.totalShares());
     }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  zapOut tests
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function test_ZapOut_ToToken1_ReceivesUsdc() public {
+        _deposit(1 ether, 3_000e6);
+        uint256 shares = vault.userShares(USER);
+        assertGt(shares, 0);
+
+        uint256 usdcBefore = IERC20(USDC).balanceOf(USER);
+
+        vm.startPrank(USER);
+        uint256 amountOut = vault.zapOut(shares, USDC, 100);
+        vm.stopPrank();
+
+        assertEq(vault.userShares(USER), 0, "All shares burned");
+        assertGt(IERC20(USDC).balanceOf(USER), usdcBefore, "USER should receive USDC");
+        assertEq(IERC20(USDC).balanceOf(USER) - usdcBefore, amountOut, "balanceOf delta matches return value");
+    }
+
+    function test_ZapOut_ToToken0_ReceivesWeth() public {
+        _deposit(1 ether, 3_000e6);
+        uint256 shares = vault.userShares(USER);
+
+        uint256 wethBefore = IERC20(WETH).balanceOf(USER);
+
+        vm.startPrank(USER);
+        uint256 amountOut = vault.zapOut(shares, WETH, 100);
+        vm.stopPrank();
+
+        assertEq(vault.userShares(USER), 0, "All shares burned");
+        assertGt(IERC20(WETH).balanceOf(USER), wethBefore, "USER should receive WETH");
+        assertEq(IERC20(WETH).balanceOf(USER) - wethBefore, amountOut, "balanceOf delta matches return value");
+    }
+
+    function test_ZapOut_DaoReceivesZapFee() public {
+        _deposit(1 ether, 3_000e6);
+        uint256 shares = vault.userShares(USER);
+
+        uint256 daoUsdcBefore = IERC20(USDC).balanceOf(DAO);
+
+        vm.startPrank(USER);
+        vault.zapOut(shares, USDC, 100);
+        vm.stopPrank();
+
+        assertGt(IERC20(USDC).balanceOf(DAO), daoUsdcBefore, "DAO should receive 0.3% zap fee");
+    }
+
+    function test_ZapOut_Partial() public {
+        _deposit(1 ether, 3_000e6);
+        uint256 shares = vault.userShares(USER);
+        uint256 halfShares = shares / 2;
+
+        vm.startPrank(USER);
+        vault.zapOut(halfShares, USDC, 100);
+        vm.stopPrank();
+
+        assertEq(vault.userShares(USER), shares - halfShares, "Half shares remain");
+        assertGt(vault.totalShares(), 0, "Total shares reduced but not zero");
+    }
+
+    function test_ZapOut_InsufficientShares_Reverts() public {
+        _deposit(1 ether, 3_000e6);
+        uint256 shares = vault.userShares(USER);
+
+        vm.startPrank(USER);
+        vm.expectRevert("Insufficient shares");
+        vault.zapOut(shares + 1, USDC, 100);
+        vm.stopPrank();
+    }
+
+    function test_ZapOut_UnsupportedToken_Reverts() public {
+        _deposit(1 ether, 3_000e6);
+        uint256 shares = vault.userShares(USER);
+
+        vm.startPrank(USER);
+        vm.expectRevert("Unsupported token");
+        vault.zapOut(shares, address(0xDEAD), 100);
+        vm.stopPrank();
+    }
+
+    function test_ZapOut_SlippageTooHigh_Reverts() public {
+        _deposit(1 ether, 3_000e6);
+        uint256 shares = vault.userShares(USER);
+
+        vm.startPrank(USER);
+        vm.expectRevert("Slippage too high");
+        vault.zapOut(shares, USDC, 501);
+        vm.stopPrank();
+    }
+
+    function test_ZapOut_UseContractSlippage_WhenZeroPassed() public {
+        vm.prank(DAO);
+        vault.setMaxSlippage(100);
+
+        _deposit(1 ether, 3_000e6);
+        uint256 shares = vault.userShares(USER);
+
+        vm.startPrank(USER);
+        uint256 amountOut = vault.zapOut(shares, USDC, 0);
+        vm.stopPrank();
+
+        assertGt(amountOut, 0, "Should receive USDC when slippageBps=0");
+    }
 }
