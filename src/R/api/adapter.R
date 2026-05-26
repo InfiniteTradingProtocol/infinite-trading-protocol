@@ -86,7 +86,7 @@ setSides <- function(
     }, error = function(e) {
       if (grepl("Timeout", e$message)) {
         print("Request timed out. Retrying...")
-      } else if (status_code(response) == 504) {
+      } else if (exists("response") && inherits(response, "response") && status_code(response) == 504) {
         print("Gateway Timeout. Retrying...")
       } else {
         print(paste("Request error occurred:", e$message))
@@ -106,7 +106,7 @@ response <- setSides(pair = "WBTC-USDC", side = "long")
 
 # Example usage to go neutral (USDC)
 
-response <- setSides(pair = "WBTC-USDC", side = "neutral")
+response <- setSides(pair = "WBTC-USDC", side = "cash")
 
 # Example usage to go short (BTCBEAR1X)
 
