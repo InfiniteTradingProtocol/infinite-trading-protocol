@@ -34,7 +34,7 @@ coins_list = [
         {"coin": "SNX", "contract": "0x50b728d8d964fd00c2d0aad81718b71311fef68a", "network": "polygon","pair":"SNX-USD"},
         {"coin": "PAXG", "contract": "0x553d3d295e0f695b9228246232edf400ed3560b5", "network": "polygon","pair":"PAXG-USD"},
         {"coin": "OP", "contract": "0x4200000000000000000000000000000000000042", "network": "optimism","pair":"OP-USD"},
-        {"coin": "USDC", "contract": "0x7f5c764cbc14f9669b88837ca1490cca17c31607", "network": "optimism","pair":"USD-USD"},
+        {"coin": "USDC", "contract": "0x7f5c764cbc14f9669b88837ca1490cca17c31607", "network": "optimism","pair":"USDC-USD"},
         {"coin": "DHT", "contract": "0xaf9fe3b5ccdae78188b1f8b9a49da7ae9510f151", "network": "optimism","pair":"DHT-USD"},
         {"coin": "WETH", "contract": "0x4200000000000000000000000000000000000006", "network": "optimism","pair":"ETH-USD"},
         {"coin": "wstETH", "contract": "0x1f32b1c2345538c0c6f582fcb022739c4a194ebb", "network": "optimism","pair":"wstETH-USD"},
@@ -71,7 +71,7 @@ def contract_to_coin(contract,network):
     for item in coins_list:
         if item['contract'].lower() == contract.lower() and item['network'].lower() == network.lower():
                 return item['coin']
-        return None
+    return None
 
 def coin_from_contract(contract,network):
     for item in coins_list:
@@ -120,7 +120,7 @@ def dhedgeComposition(pool,network):
     df['symbol'] = df['asset'].apply(lambda x: coin_from_contract(x.lower(), network))
     df['assetPair'] = df['asset'].apply(lambda x: pair_from_contract(x.lower(),network))
     # Apply the 'decimals' function
-    df['amount'] = df.apply(lambda row: row['balance'] / (10 ** decimals(row['asset'])), axis=1)
+    df['amount'] = df.apply(lambda row: row['balance'] / (10 ** decimals(row['symbol'])), axis=1)
     df['price'] = df['rate'] / (10 ** 18)
     df = df.drop(['balance','rate'], axis=1)
     return df
@@ -167,7 +167,7 @@ def tx_status(hash, network):
         raise ValueError("Error: Transaction not found or invalid transaction hash.")
 
     # Return the transaction status
-    if network == "mainnet" or network == "optimism":
+    if network == "mainnet" or network == "optimism" or network == "arbitrum":
         if api_content["result"]["isError"] == "1":
             return "Error"
         elif int(api_content["result"]["status"]) == 1:
@@ -202,6 +202,9 @@ def wallet_balance(address, network):
 
     # Parse the JSON response
     content = json.loads(response.content)
+
+    if content.get("status") != "1":
+        raise ValueError(f"Error: Etherscan API returned status {content.get('status')}: {content.get('message', content.get('result'))}")
 
     # Extract the gas balance
     gas_balance = float(content["result"]) / 10**18

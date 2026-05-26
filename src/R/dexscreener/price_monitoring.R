@@ -41,9 +41,9 @@ ds_price = function(pair, network, exchange, native = FALSE) {
     data <- fromJSON(content(response, "text"))
     # Return either USD or native price
     if (!native) {
-      return(as.numeric(data$pairs$priceUsd))
+      return(as.numeric(data$pair$priceUsd))
     } else {
-      return(data$pairs$priceNative)
+      return(data$pair$priceNative)
     }
   } else {
     cat("Error:", http_status(response)$reason, "\n")

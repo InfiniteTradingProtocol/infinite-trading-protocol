@@ -20,10 +20,10 @@ getallFundsByTrader <- function(protocol,traderAddress) {
         if (protocol == "dhedge") {
                 operationsDoc <- sprintf('query allFundsByTrader { allFundsByTrader(traderAddress: "%s") { address blockchainCode } }', traderAddress)
                 result <- fetchGraphQL(operationsDoc, "allFundsByTrader", list())
+                if ("errors" %in% names(result)) { cat("Error:", result$errors[[1]]$message, "\n"); return(NULL)  }
                 n_pools = length(result$data$allFundsByTrader)
                 pools = c(); networks = c();
-                if ("errors" %in% names(result)) { cat("Error:", result$errors[[1]]$message, "\n"); return(NULL)  }
-                else if ("data" %in% names(result) && n_pools > 0) {
+                if ("data" %in% names(result) && n_pools > 0) {
                         for (i in 1:n_pools) {
                                 pools = c(pools,result$data$allFundsByTrader[[i]]$address)
                                 networks = c(networks,result$data$allFundsByTrader[[i]]$blockchainCode)
@@ -109,15 +109,15 @@ dhedge_graphql=function(query="composition",name=NULL){
   result <- content(response, "text") %>%
   fromJSON(flatten = TRUE)
   if (query == "composition") { 
-    fund_names = res$data$allFundsByManager$name
-    n = length(res$data$allFundsByManager$name)
+    fund_names = result$data$allFundsByManager$name
+    n = length(result$data$allFundsByManager$name)
     for (i in 1:n) { 
       if (is.null(name)) {
         print(paste0("Fund name: ",fund_names[i]))
-        print(res$data$allFundsByManager$fundComposition[[i]])
+        print(result$data$allFundsByManager$fundComposition[[i]])
       }
       else if (fund_names[i]==name) { 
-        composition = res$data$allFundsByManager$fundComposition[[i]]
+        composition = result$data$allFundsByManager$fundComposition[[i]]
         return(composition)
       }
     }
@@ -132,8 +132,9 @@ coin_amount = function(pool,coins) {
     if (any(comp$tokenName == coins[i])) { 
       index = which(comp$tokenName == coins[i])
       tokens_amount[i] = as.numeric(comp$amount[index])
-      if (name == "USDCe" || name == "USDT" || name == "USDC") { decimals = 6 }
-      else if (name == "WBTC") { decimals = 8 }
+      token = coins[i]
+      if (token == "USDCe" || token == "USDT" || token == "USDC") { decimals = 6 }
+      else if (token == "WBTC") { decimals = 8 }
       else { decimals = 18 }
       tokens_amount[i] = tokens_amount[i]/(10^decimals)
     }
@@ -155,7 +156,7 @@ while (1) {
   }
   name = "Ethereum Savings Account"
   deposits = coin_amount(pool=name,coins=c("WETH"))
-  if (deposits >= 0.01) {
+  if (deposits[1] >= 0.01) {
     discord(msg=paste0("Vault: ",name," WETH Balance: ",deposits[1]),channel="#deposits-alerts")
   }
   Sys.sleep(1)
