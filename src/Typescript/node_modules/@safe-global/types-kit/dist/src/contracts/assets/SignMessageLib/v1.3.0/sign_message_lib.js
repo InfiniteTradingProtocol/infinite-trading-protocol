@@ -1,0 +1,55 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+// Source: https://github.com/safe-global/safe-deployments/blob/main/src/assets/v1.3.0/sign_message_lib.json
+exports.default = {
+    contractName: 'SignMessageLib',
+    version: '1.3.0',
+    abi: [
+        {
+            anonymous: false,
+            inputs: [
+                {
+                    indexed: true,
+                    internalType: 'bytes32',
+                    name: 'msgHash',
+                    type: 'bytes32'
+                }
+            ],
+            name: 'SignMsg',
+            type: 'event'
+        },
+        {
+            inputs: [
+                {
+                    internalType: 'bytes',
+                    name: 'message',
+                    type: 'bytes'
+                }
+            ],
+            name: 'getMessageHash',
+            outputs: [
+                {
+                    internalType: 'bytes32',
+                    name: '',
+                    type: 'bytes32'
+                }
+            ],
+            stateMutability: 'view',
+            type: 'function'
+        },
+        {
+            inputs: [
+                {
+                    internalType: 'bytes',
+                    name: '_data',
+                    type: 'bytes'
+                }
+            ],
+            name: 'signMessage',
+            outputs: [],
+            stateMutability: 'nonpayable',
+            type: 'function'
+        }
+    ]
+};
+//# sourceMappingURL=sign_message_lib.js.map

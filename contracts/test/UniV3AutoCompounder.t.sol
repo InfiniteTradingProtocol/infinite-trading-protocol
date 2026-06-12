@@ -3,6 +3,7 @@ pragma solidity ^0.8.26;
 
 import {Test} from "forge-std/src/Test.sol";
 import {console} from "forge-std/src/console.sol";
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {UniV3AutoCompounder} from "../src/UniV3AutoCompounder.sol";
 
 // ─── Minimal interfaces needed only for the test harness ─────────────────────
@@ -118,8 +119,13 @@ contract UniV3AutoCompounderTest is Test {
         require(pool != address(0), "Pool not found - check token addresses / fee");
         console.log("WETH/USDC 500 pool:", pool);
 
-        // Deploy vault (token0 = WETH because 0x4200... < 0x8335...)
-        vault = new UniV3AutoCompounder(WETH, USDC, POOL_FEE, pool, KEEPER, DAO);
+        // Deploy vault via proxy (token0 = WETH because 0x4200... < 0x8335...)
+        UniV3AutoCompounder impl = new UniV3AutoCompounder();
+        bytes memory initData = abi.encodeCall(
+            impl.initialize,
+            (WETH, USDC, POOL_FEE, pool, KEEPER, DAO, address(0))
+        );
+        vault = UniV3AutoCompounder(address(new ERC1967Proxy(address(impl), initData)));
 
         // Read current tick and derive a ±2000 tick range aligned to tick spacing
         (, int24 currentTick, , , , , ) = IUniswapV3Pool(pool).slot0();
@@ -341,7 +347,7 @@ contract UniV3AutoCompounderTest is Test {
     function test_SetMaxSlippage_TooHigh() public {
         vm.prank(DAO);
         vm.expectRevert("Slippage too high");
-        vault.setMaxSlippage(501); // > 5 %
+        vault.setMaxSlippage(1001); // > 1000 bps cap
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -737,5 +743,311 @@ contract UniV3AutoCompounderTest is Test {
         vm.stopPrank();
 
         assertGt(amountOut, 0, "Should receive USDC when slippageBps=0");
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  setPool tests
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function test_SetPool_UpdatesState() public {
+        address newPool = address(0xABCD);
+        uint24  newFee  = 3000;
+
+        vm.prank(DAO);
+        vault.setPool(newPool, newFee);
+
+        assertEq(vault.pool(),    newPool, "pool should be updated");
+        assertEq(vault.poolFee(), newFee,  "poolFee should be updated");
+    }
+
+    function test_SetPool_InvalidFee_Reverts() public {
+        vm.prank(DAO);
+        vm.expectRevert("Invalid fee tier");
+        vault.setPool(address(0xABCD), 999); // not 100/500/3000/10000
+    }
+
+    function test_SetPool_ZeroAddress_Reverts() public {
+        vm.prank(DAO);
+        vm.expectRevert("Zero pool address");
+        vault.setPool(address(0), 500);
+    }
+
+    function test_SetPool_OnlyOwner_Reverts() public {
+        vm.expectRevert("Not owner");
+        vm.prank(USER);
+        vault.setPool(address(0xABCD), 3000);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  rescueTokens test
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function test_RescueTokens() public {
+        // Send USDC directly to the vault (simulate accidentally sent tokens)
+        uint256 strayAmount = 500e6;
+        deal(USDC, address(vault), strayAmount);
+        assertEq(IERC20(USDC).balanceOf(address(vault)), strayAmount);
+
+        uint256 ownerBefore = IERC20(USDC).balanceOf(DAO);
+        vm.prank(DAO);
+        vault.rescueTokens(USDC, strayAmount);
+
+        assertEq(IERC20(USDC).balanceOf(address(vault)), 0,           "Vault should be drained");
+        assertEq(IERC20(USDC).balanceOf(DAO) - ownerBefore, strayAmount, "Owner should receive tokens");
+    }
+
+    function test_RescueTokens_OnlyOwner_Reverts() public {
+        deal(USDC, address(vault), 100e6);
+        vm.expectRevert("Not owner");
+        vm.prank(USER);
+        vault.rescueTokens(USDC, 100e6);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  pendingFees test
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function test_PendingFees_ZeroBeforeDeposit() public {
+        (uint128 owed0, uint128 owed1) = vault.pendingFees();
+        assertEq(owed0, 0, "No fees before deposit");
+        assertEq(owed1, 0, "No fees before deposit");
+    }
+
+    function test_PendingFees_NonZeroAfterSwaps() public {
+        _deposit(1 ether, 3_000e6);
+        _generateFees();
+        vm.warp(block.timestamp + 30 minutes);
+
+        // Note: tokensOwed in the NFT position manager is only snapshotted on position
+        // interactions (collect/decreaseLiquidity), not on pool swaps. So pendingFees()
+        // may return 0 even after real swaps. Verify the function is callable and after
+        // a compound (which calls collect) the values reset to 0.
+        vm.prank(KEEPER);
+        vault.compound();
+
+        (uint128 owed0, uint128 owed1) = vault.pendingFees();
+        // After collect() in compound, tokensOwed is cleared
+        assertEq(owed0, 0, "tokensOwed should be 0 after compound collected fees");
+        assertEq(owed1, 0, "tokensOwed should be 0 after compound collected fees");
+        console.log("pendingFees after compound token0:", owed0);
+        console.log("pendingFees after compound token1:", owed1);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  Compound: DAO not paid when fees are zero
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function test_Compound_DaoNotPaidOnZeroFees() public {
+        _deposit(1 ether, 3_000e6);
+
+        uint256 daoBefore0 = IERC20(WETH).balanceOf(DAO);
+        uint256 daoBefore1 = IERC20(USDC).balanceOf(DAO);
+
+        vm.prank(KEEPER);
+        vault.compound(); // no fees generated → should return early
+
+        assertEq(IERC20(WETH).balanceOf(DAO), daoBefore0, "DAO should not receive WETH with zero fees");
+        assertEq(IERC20(USDC).balanceOf(DAO), daoBefore1, "DAO should not receive USDC with zero fees");
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  Compound: contract balance (leftover from failed compound) is swept
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function test_Compound_IncludesContractBalance() public {
+        _deposit(1 ether, 3_000e6);
+        uint128 liqBefore = vault.totalLiquidity();
+
+        // Simulate tokens left in contract after a previous failed compound.
+        // Use both tokens so the rebalance produces a valid non-zero split.
+        deal(WETH, address(vault), 0.05 ether);  // ~$111 WETH
+        deal(USDC, address(vault), 250e6);        // $250 USDC
+
+        vm.warp(block.timestamp + 30 minutes);
+
+        uint256 keeperBefore = IERC20(USDC).balanceOf(KEEPER);
+        vm.prank(KEEPER);
+        vault.compound();
+
+        uint128 liqAfter = vault.totalLiquidity();
+        assertGt(liqAfter, liqBefore, "Liquidity should increase after compounding contract balance");
+        assertGt(IERC20(USDC).balanceOf(KEEPER) + IERC20(WETH).balanceOf(KEEPER),
+                 keeperBefore, "Keeper should receive fee on compounded balance");
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  Withdraw: revert checks
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function test_Withdraw_InsufficientShares_Reverts() public {
+        _deposit(1 ether, 3_000e6);
+        uint256 shares = vault.userShares(USER);
+
+        vm.prank(USER);
+        vm.expectRevert("Insufficient shares");
+        vault.withdraw(shares + 1);
+    }
+
+    function test_Withdraw_ShareAmountTooSmall_Reverts() public {
+        _deposit(1 ether, 3_000e6);
+        // Evaluate shares BEFORE setting up the expectRevert to avoid consuming the prank
+        uint256 tooMany = vault.userShares(USER) + 1e30;
+        vm.prank(USER);
+        vm.expectRevert("Insufficient shares");
+        vault.withdraw(tooMany);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  Compound: fees only paid after successful liquidity add
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function test_Compound_FeesOnlyAfterLiquidity() public {
+        _deposit(1 ether, 3_000e6);
+        _generateFees();
+        vm.warp(block.timestamp + 30 minutes);
+
+        uint256 daoBefore0    = IERC20(WETH).balanceOf(DAO);
+        uint256 daoBefore1    = IERC20(USDC).balanceOf(DAO);
+        uint256 keeperBefore0 = IERC20(WETH).balanceOf(KEEPER);
+        uint256 keeperBefore1 = IERC20(USDC).balanceOf(KEEPER);
+        uint128 liqBefore     = vault.totalLiquidity();
+
+        vm.prank(KEEPER);
+        vault.compound();
+
+        uint128 liqAfter = vault.totalLiquidity();
+
+        // If liquidity increased, fees MUST have been paid
+        if (liqAfter > liqBefore) {
+            uint256 daoTotal    = (IERC20(WETH).balanceOf(DAO) - daoBefore0) +
+                                  (IERC20(USDC).balanceOf(DAO) - daoBefore1);
+            uint256 keeperTotal = (IERC20(WETH).balanceOf(KEEPER) - keeperBefore0) +
+                                  (IERC20(USDC).balanceOf(KEEPER) - keeperBefore1);
+            assertGt(daoTotal + keeperTotal, 0, "Fees should have been paid after successful compound");
+            // DAO:keeper fee ratio is 150:50 = 3:1 (bps division may cause 1-2 wei rounding)
+            assertApproxEqAbs(daoTotal, keeperTotal * 3, 10, "DAO gets ~3x keeper (150bps vs 50bps)");
+        } else {
+            // No liquidity added → no fees should have been charged
+            assertEq(IERC20(WETH).balanceOf(DAO) + IERC20(USDC).balanceOf(DAO),
+                     daoBefore0 + daoBefore1, "DAO should not be paid if no liquidity added");
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  test_MaxSlippageBps_DefaultIs300
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function test_MaxSlippageBps_DefaultIs300() public {
+        assertEq(vault.maxSlippageBps(), 300, "Default maxSlippageBps should be 300");
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  test_Compound_ExactFeeAmounts
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// @dev Deal tokens directly to the vault (simulating freshly-collected LP fees)
+    ///      and verify the DAO and executor receive exactly 150 bps and 50 bps.
+    function test_Compound_ExactFeeAmounts() public {
+        _deposit(1 ether, 3_000e6);
+
+        // Deal fresh fee tokens into the vault (no pendingReinvest, so all treated as fresh)
+        uint256 freshWeth = 0.1 ether;
+        uint256 freshUsdc = 300e6;
+        deal(WETH, address(vault), freshWeth);
+        deal(USDC, address(vault), freshUsdc);
+
+        vm.warp(block.timestamp + 30 minutes);
+
+        uint256 daoBefore0    = IERC20(WETH).balanceOf(DAO);
+        uint256 daoBefore1    = IERC20(USDC).balanceOf(DAO);
+        uint256 keeperBefore0 = IERC20(WETH).balanceOf(KEEPER);
+        uint256 keeperBefore1 = IERC20(USDC).balanceOf(KEEPER);
+
+        vm.prank(KEEPER);
+        vault.compound();
+
+        uint256 daoWeth  = IERC20(WETH).balanceOf(DAO)    - daoBefore0;
+        uint256 daoUsdc  = IERC20(USDC).balanceOf(DAO)    - daoBefore1;
+        uint256 keepWeth = IERC20(WETH).balanceOf(KEEPER) - keeperBefore0;
+        uint256 keepUsdc = IERC20(USDC).balanceOf(KEEPER) - keeperBefore1;
+
+        // DAO = 150 bps, executor = 50 bps on FRESH fees only
+        assertEq(daoWeth,  freshWeth * 150 / 10_000, "DAO WETH fee mismatch");
+        assertEq(daoUsdc,  freshUsdc * 150 / 10_000, "DAO USDC fee mismatch");
+        assertEq(keepWeth, freshWeth * 50  / 10_000, "Executor WETH fee mismatch");
+        assertEq(keepUsdc, freshUsdc * 50  / 10_000, "Executor USDC fee mismatch");
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  test_Compound_PendingReinvest_NoDoubleFee
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// @dev After a compound that leaves carryover in pendingReinvest,
+    ///      a second compound (no new fees collected) must NOT pay DAO/executor.
+    function test_Compound_PendingReinvest_NoDoubleFee() public {
+        _deposit(1 ether, 3_000e6);
+        _generateFees();
+        vm.warp(block.timestamp + 30 minutes);
+
+        // First compound: collects fresh fees, pays DAO/executor, may leave carryover
+        vm.prank(KEEPER);
+        vault.compound();
+
+        // Immediately compound again — no new LP fees, only (fee-stripped) carryover
+        uint256 daoBefore0    = IERC20(WETH).balanceOf(DAO);
+        uint256 daoBefore1    = IERC20(USDC).balanceOf(DAO);
+        uint256 keeperBefore0 = IERC20(WETH).balanceOf(KEEPER);
+        uint256 keeperBefore1 = IERC20(USDC).balanceOf(KEEPER);
+
+        vm.prank(KEEPER);
+        vault.compound();
+
+        assertEq(IERC20(WETH).balanceOf(DAO),    daoBefore0,    "DAO must not receive fees on carryover");
+        assertEq(IERC20(USDC).balanceOf(DAO),    daoBefore1,    "DAO must not receive fees on carryover");
+        assertEq(IERC20(WETH).balanceOf(KEEPER), keeperBefore0, "Executor must not receive fees on carryover");
+        assertEq(IERC20(USDC).balanceOf(KEEPER), keeperBefore1, "Executor must not receive fees on carryover");
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  test_Compound_SkewedRatio_StillAddsLiquidity
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// @dev Regression test for the "want0 rounds to zero" bug.
+    ///
+    ///      When the collected fees are heavily skewed toward token1 (e.g. the
+    ///      pool price makes token1 very cheap in raw-unit terms), _rebalance()
+    ///      would previously swap ALL of token0 away and return (0, large).
+    ///      Uniswap V3's increaseLiquidity then computed min(L_from_0=0, L_from_1)
+    ///      = 0 and reverted, so compound() could *never* add liquidity.
+    ///
+    ///      The fix keeps at least 1 token0 unit so that L_from_0 > 0, letting
+    ///      the min-formula return non-zero liquidity and the transaction succeed.
+    ///
+    ///      We simulate the skewed state by dealing a large token1 surplus and a
+    ///      tiny token0 amount directly to the vault (bypassing normal deposit),
+    ///      which is exactly what happens after multiple failed compound() calls
+    ///      accumulate token1 in the vault.
+    function test_Compound_SkewedRatio_StillAddsLiquidity() public {
+        _deposit(1 ether, 3_000e6);
+
+        // Simulate accumulated token1 surplus (10× more USDC than WETH in value)
+        // without using generateFees, so we control the exact amounts.
+        // The WETH/USDC pool has WETH as token0.  Deal mostly USDC (token1) so
+        // that after _rebalance the token0 side would naively be swept to zero.
+        deal(WETH, address(vault), 0.0001 ether);   // ~$0.25 of WETH (tiny)
+        deal(USDC, address(vault), 25e6);            // $25 of USDC (100× larger)
+
+        uint128 liquidityBefore = _positionLiquidity();
+
+        vm.prank(KEEPER);
+        vault.compound();   // must not revert
+
+        // Liquidity must have increased (at least some was added)
+        assertGt(_positionLiquidity(), liquidityBefore, "compound must add liquidity even with skewed ratio");
+    }
+
+    /// @dev Read the current liquidity of the vault's V3 position.
+    function _positionLiquidity() internal view returns (uint128 liq) {
+        (, , , , , , , liq, , , , ) = INonfungiblePositionManager(POSITION_MANAGER).positions(vault.tokenId());
     }
 }

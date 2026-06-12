@@ -1,0 +1,76 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+// Source: https://github.com/safe-global/safe-deployments/blob/main/src/assets/v1.4.1/create_call.json
+exports.default = {
+    contractName: 'CreateCall',
+    version: '1.4.1',
+    abi: [
+        {
+            anonymous: false,
+            inputs: [
+                {
+                    indexed: true,
+                    internalType: 'address',
+                    name: 'newContract',
+                    type: 'address'
+                }
+            ],
+            name: 'ContractCreation',
+            type: 'event'
+        },
+        {
+            inputs: [
+                {
+                    internalType: 'uint256',
+                    name: 'value',
+                    type: 'uint256'
+                },
+                {
+                    internalType: 'bytes',
+                    name: 'deploymentData',
+                    type: 'bytes'
+                }
+            ],
+            name: 'performCreate',
+            outputs: [
+                {
+                    internalType: 'address',
+                    name: 'newContract',
+                    type: 'address'
+                }
+            ],
+            stateMutability: 'nonpayable',
+            type: 'function'
+        },
+        {
+            inputs: [
+                {
+                    internalType: 'uint256',
+                    name: 'value',
+                    type: 'uint256'
+                },
+                {
+                    internalType: 'bytes',
+                    name: 'deploymentData',
+                    type: 'bytes'
+                },
+                {
+                    internalType: 'bytes32',
+                    name: 'salt',
+                    type: 'bytes32'
+                }
+            ],
+            name: 'performCreate2',
+            outputs: [
+                {
+                    internalType: 'address',
+                    name: 'newContract',
+                    type: 'address'
+                }
+            ],
+            stateMutability: 'nonpayable',
+            type: 'function'
+        }
+    ]
+};
+//# sourceMappingURL=create_call.js.map

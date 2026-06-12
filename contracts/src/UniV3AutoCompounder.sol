@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.26;
+
+import {Initializable}    from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  UniV3AutoCompounder
@@ -230,15 +233,15 @@ library FullMath {
 
 // ─── Main contract ────────────────────────────────────────────────────────────
 
-contract UniV3AutoCompounder {
+contract UniV3AutoCompounder is Initializable, UUPSUpgradeable {
 
     // ── Constants – Base mainnet ──────────────────────────────────────────────
     address public constant POSITION_MANAGER = 0x03a520b32C04BF3bEEf7BEb72E919cf822Ed34f1;
     address public constant SWAP_ROUTER      = 0x2626664c2603336E57B271c5C0b26F421741e481;
 
-    // ── Immutables set at deployment ──────────────────────────────────────────
-    address public immutable token0;   // lower-address token of the pair
-    address public immutable token1;   // higher-address token of the pair
+    // ── Pair tokens (set once in initialize, never change) ────────────────────
+    address public token0;   // lower-address token of the pair
+    address public token1;   // higher-address token of the pair
     uint24  public poolFee;  // Uniswap pool fee tier (e.g. 500, 3000, 10000) – updatable by owner
     address public pool;     // Uniswap V3 pool address – updatable by owner
 
@@ -257,11 +260,20 @@ contract UniV3AutoCompounder {
 
     // ── TWAP oracle parameters ────────────────────────────────────────────────
     uint32 public twapPeriod    = 60;   // lookback window for TWAP oracle (seconds); 60s suits low-activity pools
-    uint16 public maxSlippageBps = 200; // maximum swap slippage (200 bps = 2%); covers 1% pool fee + price impact
+    uint16 public maxSlippageBps = 300; // swap slippage tolerance in bps (default 3%); the pool fee is deducted
+                                          // separately in _calcAmountOutMin so this value covers price-impact only
 
     // ── Share accounting ──────────────────────────────────────────────────────
     uint256 public totalShares;
     mapping(address => uint256) public userShares;
+
+    // ── Compound carryover ────────────────────────────────────────────────────
+    // Tokens left in the vault after a compound where increaseLiquidity only
+    // partially consumed the input (Uniswap bottlenecked by the scarcer token).
+    // These are already fee-stripped and must NOT have fees charged again.
+    // Reset to 0 at the start of each compound() call.
+    uint256 public pendingReinvest0;
+    uint256 public pendingReinvest1;
 
     // ── Events ────────────────────────────────────────────────────────────────
     event Deposited(address indexed user, uint256 tokenId, uint256 liquidity, uint256 shares);
@@ -277,6 +289,10 @@ contract UniV3AutoCompounder {
     event PoolUpdated(address newPool, uint24 newPoolFee);
     event ZappedIn(address indexed user, address indexed tokenIn, uint256 amountIn, uint256 zapFee, uint128 liquidityAdded, uint256 shares);
     event ZappedOut(address indexed user, address indexed tokenOut, uint256 shares, uint256 amountOut, uint256 zapFee);
+    /// @dev Emitted when a rebalance swap is skipped because the market price fell outside
+    ///      the slippage floor.  Keeper bots should monitor this and retry compound() with
+    ///      a higher slippageBps (or via a private mempool with slippageBps = 10_000).
+    event SwapSkipped(address indexed tokenIn, address indexed tokenOut, uint256 amountIn, uint16 slippageBps);
 
     // ── Modifiers ─────────────────────────────────────────────────────────────
     modifier onlyKeeper() {
@@ -290,23 +306,33 @@ contract UniV3AutoCompounder {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    //  Constructor
+    //  Constructor (disabled) + Initializer
     // ─────────────────────────────────────────────────────────────────────────
 
+    /// @dev Locks the implementation contract so it cannot be initialized directly.
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    /// @notice One-time initializer called via the proxy.
+    ///         Replaces the constructor for the upgradeable deployment pattern.
     /// @param _token0          Token0 of the Uniswap V3 pool (must be the lower address)
     /// @param _token1          Token1 of the Uniswap V3 pool
     /// @param _poolFee         Pool fee tier (500, 3000, or 10000)
     /// @param _pool            Address of the Uniswap V3 pool
     /// @param _initialKeeper   First keeper whitelisted at deploy; DAO can add more later
     /// @param _dao             ITP DAO address – receives 1.5% fee and contract ownership
-    constructor(
+    /// @param _secondKeeper    Optional second keeper (pass address(0) to skip)
+    function initialize(
         address _token0,
         address _token1,
         uint24  _poolFee,
         address _pool,
         address _initialKeeper,
-        address _dao
-    ) {
+        address _dao,
+        address _secondKeeper
+    ) external initializer {
         require(_token0 < _token1, "token0 must be < token1");
         require(_dao != address(0), "Zero DAO address");
         require(_initialKeeper != address(0), "Zero keeper address");
@@ -316,9 +342,19 @@ contract UniV3AutoCompounder {
         pool     = _pool;
         dao      = _dao;
         owner    = _dao;  // ownership transferred to DAO at launch
+        // Set state variable defaults (not carried over from storage declarations via proxy)
+        twapPeriod     = 60;
+        maxSlippageBps = 300;
         isKeeper[_initialKeeper] = true;
         emit KeeperAdded(_initialKeeper);
+        if (_secondKeeper != address(0)) {
+            isKeeper[_secondKeeper] = true;
+            emit KeeperAdded(_secondKeeper);
+        }
     }
+
+    /// @dev Only the DAO/owner can authorize an upgrade to a new implementation.
+    function _authorizeUpgrade(address) internal override onlyOwner {}
 
     // ─────────────────────────────────────────────────────────────────────────
     //  Deposit – mint a new position or add to an existing one
@@ -421,8 +457,8 @@ contract UniV3AutoCompounder {
     function withdraw(uint256 shareAmount) external {
         require(userShares[msg.sender] >= shareAmount, "Insufficient shares");
 
-        uint256 totalLiquidity = _getTotalLiquidity();
-        uint128 liquidityToRemove = uint128((shareAmount * totalLiquidity) / totalShares);
+        uint256 totalLiqBefore = _getTotalLiquidity();
+        uint128 liquidityToRemove = uint128((shareAmount * totalLiqBefore) / totalShares);
         require(liquidityToRemove > 0, "Share amount too small");
 
         // Effects before interactions (CEI pattern)
@@ -478,8 +514,8 @@ contract UniV3AutoCompounder {
         uint16 slip = slippageBps == 0 ? maxSlippageBps : slippageBps;
         require(slip <= 500, "Slippage too high");
 
-        uint256 totalLiquidity = _getTotalLiquidity();
-        uint128 liquidityToRemove = uint128((shareAmount * totalLiquidity) / totalShares);
+        uint256 totalLiqBefore = _getTotalLiquidity();
+        uint128 liquidityToRemove = uint128((shareAmount * totalLiqBefore) / totalShares);
         require(liquidityToRemove > 0, "Share amount too small");
 
         // Effects before interactions (CEI)
@@ -510,13 +546,13 @@ contract UniV3AutoCompounder {
         if (tokenOut == token1) {
             // Want token1 – swap all token0 proceeds to token1
             if (amount0 > 0) {
-                amount1 += _swapWithSlippage(token0, token1, amount0, slip);
+                amount1 += _executeSwap(token0, token1, amount0, slip);
             }
             amountOut = amount1;
         } else {
             // Want token0 – swap all token1 proceeds to token0
             if (amount1 > 0) {
-                amount0 += _swapWithSlippage(token1, token0, amount1, slip);
+                amount0 += _executeSwap(token1, token0, amount1, slip);
             }
             amountOut = amount0;
         }
@@ -579,7 +615,7 @@ contract UniV3AutoCompounder {
         if (currentTick <= tickLower) {
             // Position is 100% token0 – convert everything to token0.
             if (tokenIn == token1) {
-                amt0 = _swapWithSlippage(token1, token0, remaining, slip);
+                amt0 = _executeSwap(token1, token0, remaining, slip);
             } else {
                 amt0 = remaining;
             }
@@ -587,7 +623,7 @@ contract UniV3AutoCompounder {
         } else if (currentTick >= tickUpper) {
             // Position is 100% token1 – convert everything to token1.
             if (tokenIn == token0) {
-                amt1 = _swapWithSlippage(token0, token1, remaining, slip);
+                amt1 = _executeSwap(token0, token1, remaining, slip);
             } else {
                 amt1 = remaining;
             }
@@ -615,14 +651,14 @@ contract UniV3AutoCompounder {
                 // Swap the token1-weight fraction of token0 → token1
                 uint256 swapAmt = FullMath.mulDiv(remaining, w1, wTotal);
                 if (swapAmt > 0) {
-                    amt1 = _swapWithSlippage(token0, token1, swapAmt, slip);
+                    amt1 = _executeSwap(token0, token1, swapAmt, slip);
                 }
                 amt0 = remaining - swapAmt;
             } else {
                 // Swap the token0-weight fraction of token1 → token0
                 uint256 swapAmt = FullMath.mulDiv(remaining, w0, wTotal);
                 if (swapAmt > 0) {
-                    amt0 = _swapWithSlippage(token1, token0, swapAmt, slip);
+                    amt0 = _executeSwap(token1, token0, swapAmt, slip);
                 }
                 amt1 = remaining - swapAmt;
             }
@@ -699,8 +735,16 @@ contract UniV3AutoCompounder {
     function compound() external onlyKeeper {
         require(tokenId != 0, "No position");
 
-        // 1. Collect all accrued fees to this contract
-        (uint256 fee0, uint256 fee1) = INonfungiblePositionManager(POSITION_MANAGER).collect(
+        // 1a. Snapshot fee-stripped carryover from a previous partial compound
+        //     (tokens left when increaseLiquidity consumed less than compound0/1),
+        //     then reset so they are not double-counted this call.
+        uint256 carryover0 = pendingReinvest0;
+        uint256 carryover1 = pendingReinvest1;
+        pendingReinvest0 = 0;
+        pendingReinvest1 = 0;
+
+        // 1b. Collect all accrued fees to this contract.
+        INonfungiblePositionManager(POSITION_MANAGER).collect(
             INonfungiblePositionManager.CollectParams({
                 tokenId: tokenId,
                 recipient: address(this),
@@ -709,34 +753,41 @@ contract UniV3AutoCompounder {
             })
         );
 
-        if (fee0 == 0 && fee1 == 0) return;
+        // Fresh fees = total balance minus the already-fee-stripped carryover.
+        // Tokens stranded by a fully-failed increaseLiquidity (catch block below)
+        // are NOT in carryover (pendingReinvest stays 0 after a catch), so they
+        // appear here as freshFee and have fees charged on them correctly.
+        uint256 freshFee0 = IERC20(token0).balanceOf(address(this)) - carryover0;
+        uint256 freshFee1 = IERC20(token1).balanceOf(address(this)) - carryover1;
 
-        // 2. Deduct protocol fees before re-compounding
+        if (freshFee0 == 0 && freshFee1 == 0 && carryover0 == 0 && carryover1 == 0) return;
+
+        // 2. Calculate protocol fee amounts on FRESH fees only (DO NOT transfer
+        //    yet – only pay if liquidity is actually added in step 5).
         //    DAO:      1.5 %  (150 bps)
         //    Executor: 0.5 %  (50 bps)
         //    LP:      98.0 %  (remainder)
         address executor = msg.sender;
 
-        uint256 daoFee0      = fee0 * DAO_FEE_BPS      / 10_000;
-        uint256 daoFee1      = fee1 * DAO_FEE_BPS      / 10_000;
-        uint256 executorFee0 = fee0 * EXECUTOR_FEE_BPS / 10_000;
-        uint256 executorFee1 = fee1 * EXECUTOR_FEE_BPS / 10_000;
+        uint256 daoFee0      = freshFee0 * DAO_FEE_BPS      / 10_000;
+        uint256 daoFee1      = freshFee1 * DAO_FEE_BPS      / 10_000;
+        uint256 executorFee0 = freshFee0 * EXECUTOR_FEE_BPS / 10_000;
+        uint256 executorFee1 = freshFee1 * EXECUTOR_FEE_BPS / 10_000;
 
-        if (daoFee0 > 0) require(IERC20(token0).transfer(dao, daoFee0), "dao fee0 failed");
-        if (daoFee1 > 0) require(IERC20(token1).transfer(dao, daoFee1), "dao fee1 failed");
-        if (executorFee0 > 0) require(IERC20(token0).transfer(executor, executorFee0), "exec fee0 failed");
-        if (executorFee1 > 0) require(IERC20(token1).transfer(executor, executorFee1), "exec fee1 failed");
+        // Reinvestment amount = fresh fees minus protocol cut + fee-free carryover.
+        uint256 compound0 = (freshFee0 - daoFee0 - executorFee0) + carryover0;
+        uint256 compound1 = (freshFee1 - daoFee1 - executorFee1) + carryover1;
 
-        emit FeesDistributed(executor, daoFee0, daoFee1, executorFee0, executorFee1);
-
-        uint256 compound0 = fee0 - daoFee0 - executorFee0;
-        uint256 compound1 = fee1 - daoFee1 - executorFee1;
-
-        // 3. Read current position tick range and pool price
+        // 3. Read current position tick range and pool price.
+        //    Use the TWAP tick (same source used by _calcAmountOutMin) for the
+        //    rebalance ratio calculation.  Using spot (slot0) here while
+        //    _calcAmountOutMin uses TWAP caused the swap to revert whenever
+        //    spot drifted more than maxSlippageBps from TWAP.
         (, , , , , int24 tickLower, int24 tickUpper, , , , , ) =
             INonfungiblePositionManager(POSITION_MANAGER).positions(tokenId);
 
-        (uint160 sqrtPriceX96, int24 currentTick, , , , , ) = IUniswapV3Pool(pool).slot0();
+        int24 currentTick = _getTwapTick();
+        uint160 sqrtPriceX96 = TickMath.getSqrtRatioAtTick(currentTick);
 
         // 4. Swap to the ratio that the position requires
         (uint256 final0, uint256 final1) = _rebalance(
@@ -746,13 +797,33 @@ contract UniV3AutoCompounder {
             maxSlippageBps
         );
 
-        if (final0 == 0 && final1 == 0) return;
+        if (final0 == 0 && final1 == 0) {
+            // Nothing came back (e.g. out-of-range and swap failed).
+            // Preserve tokens as fee-free carryover so the next call doesn't
+            // charge protocol fees on them again.
+            pendingReinvest0 = IERC20(token0).balanceOf(address(this));
+            pendingReinvest1 = IERC20(token1).balanceOf(address(this));
+            return;
+        }
 
-        // 5. Approve position manager and re-add as liquidity
+        // 5. Uniswap V3 in-range liquidity requires BOTH tokens (L = min(L0, L1)).
+        //    If the rebalance swap failed and left one side at zero while the
+        //    position is in range, increaseLiquidity would compute L=0 and revert.
+        //    Detect this early, save the tokens as fee-free carryover, and retry
+        //    next compound call (TWAP / pool conditions may have changed by then).
+        bool positionInRange = currentTick > tickLower && currentTick < tickUpper;
+        if (positionInRange && (final0 == 0 || final1 == 0)) {
+            pendingReinvest0 = IERC20(token0).balanceOf(address(this));
+            pendingReinvest1 = IERC20(token1).balanceOf(address(this));
+            return;
+        }
+
+        // 6. Approve position manager and re-add as liquidity.
         IERC20(token0).approve(POSITION_MANAGER, final0);
         IERC20(token1).approve(POSITION_MANAGER, final1);
 
-        (uint128 liquidityAdded, , ) = INonfungiblePositionManager(POSITION_MANAGER).increaseLiquidity(
+        uint128 liquidityAdded;
+        try INonfungiblePositionManager(POSITION_MANAGER).increaseLiquidity(
             INonfungiblePositionManager.IncreaseLiquidityParams({
                 tokenId: tokenId,
                 amount0Desired: final0,
@@ -761,11 +832,34 @@ contract UniV3AutoCompounder {
                 amount1Min: 0,
                 deadline: block.timestamp + 600
             })
-        );
+        ) returns (uint128 liq, uint256, uint256) {
+            liquidityAdded = liq;
+        } catch {
+            // increaseLiquidity reverted (e.g. extreme rounding to L=0).
+            // Reset approvals and track remaining tokens as fee-free carryover
+            // so protocol fees are not charged on them again next call.
+            IERC20(token0).approve(POSITION_MANAGER, 0);
+            IERC20(token1).approve(POSITION_MANAGER, 0);
+            pendingReinvest0 = IERC20(token0).balanceOf(address(this));
+            pendingReinvest1 = IERC20(token1).balanceOf(address(this));
+            return;
+        }
+
+        // 6. Liquidity was successfully added – now pay DAO and executor.
+        if (daoFee0 > 0) require(IERC20(token0).transfer(dao, daoFee0), "dao fee0 failed");
+        if (daoFee1 > 0) require(IERC20(token1).transfer(dao, daoFee1), "dao fee1 failed");
+        if (executorFee0 > 0) require(IERC20(token0).transfer(executor, executorFee0), "exec fee0 failed");
+        if (executorFee1 > 0) require(IERC20(token1).transfer(executor, executorFee1), "exec fee1 failed");
+
+        emit FeesDistributed(executor, daoFee0, daoFee1, executorFee0, executorFee1);
+
+        // Record any tokens remaining after fee payment as fee-stripped carryover
+        // so the next compound() call does not charge fees on them again.
+        pendingReinvest0 = IERC20(token0).balanceOf(address(this));
+        pendingReinvest1 = IERC20(token1).balanceOf(address(this));
 
         // No share change – every existing share is now worth slightly more liquidity
-
-        emit Compounded(fee0, fee1, liquidityAdded);
+        emit Compounded(freshFee0, freshFee1, liquidityAdded);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -807,16 +901,25 @@ contract UniV3AutoCompounder {
         if (currentTick <= tickLower) {
             // Position is 100% token0 – swap all token1 to token0
             if (fee1 > 0) {
-                uint256 out = _swapWithSlippage(token1, token0, fee1, slippageBps);
-                return (fee0 + out, 0);
+                try this._swapWithSlippage(token1, token0, fee1, slippageBps) returns (uint256 out) {
+                    return (fee0 + out, 0);
+                } catch {
+                    // Swap failed (e.g. price impact > slippage tolerance).
+                    // Fall back to reinvesting whatever token0 we have unswapped.
+                    emit SwapSkipped(token1, token0, fee1, slippageBps);
+                }
             }
             return (fee0, 0);
         }
         if (currentTick >= tickUpper) {
             // Position is 100% token1 – swap all token0 to token1
             if (fee0 > 0) {
-                uint256 out = _swapWithSlippage(token0, token1, fee0, slippageBps);
-                return (0, fee1 + out);
+                try this._swapWithSlippage(token0, token1, fee0, slippageBps) returns (uint256 out) {
+                    return (0, fee1 + out);
+                } catch {
+                    // Swap failed – fall back to reinvesting available token1.
+                    emit SwapSkipped(token0, token1, fee0, slippageBps);
+                }
             }
             return (0, fee1);
         }
@@ -843,14 +946,19 @@ contract UniV3AutoCompounder {
         uint256 numeratorR   = FullMath.mulDiv(sqrtPminusPL, FullMath.mulDiv(uint256(sqrtP), uint256(sqrtPU), Q96), Q96);
         uint256 denominatorR = sqrtPUminusP; // already in Q96 space relative to numeratorR
 
-        // Desired split: keep ratio such that fee0_new / fee1_new = 1 / R
-        // Total value in token0 units:
-        //   totalVal0 = fee0 + fee1 * denominatorR / numeratorR
-        // Amount of token0 we want:
-        //   want0 = totalVal0 * denominatorR / (denominatorR + numeratorR)
-        // Amount to swap x = fee0 - want0
-        //   if x > 0: swap x token0 → token1
-        //   if x < 0: swap |x| token1 → token0
+        // Desired split: for any in-range V3 position, the optimal add that
+        // maximises liquidity (no wasted tokens) is always a 50/50 VALUE split:
+        //   L = min(L_from_t0, L_from_t1), maximised when both contributions equal.
+        //   Equal contributions  ↔  value_in_t0 == value_in_t1.
+        //
+        //   want0 = totalVal0 / 2  (half the total value in token0 units)
+        //   want1 = (totalVal0 / 2) × R  (same value expressed in token1 units)
+        //
+        // NOTE: the earlier formula  want0 = totalVal0 × denominatorR / (denominatorR + numeratorR)
+        // equals totalVal0 / (1 + R).  For pools where R >> 1 (e.g. USDC 6-dec /
+        // ITP 18-dec where R ≈ 9.1e13) this rounds to 0 in integer arithmetic,
+        // so the code concluded "no swap needed", returned (0, fee1), and
+        // increaseLiquidity computed L=0 and reverted on every single call.
 
         // Compute total value in token0 (Q0 units, same decimals as fee0)
         // fee1_in_token0 = fee1 * denominatorR / numeratorR
@@ -864,36 +972,51 @@ contract UniV3AutoCompounder {
         uint256 fee1InToken0 = FullMath.mulDiv(fee1, denominatorR, numeratorR);
         uint256 totalVal0    = fee0 + fee1InToken0;
 
-        // want0 = totalVal0 * denominatorR / (denominatorR + numeratorR)
-        uint256 want0 = FullMath.mulDiv(totalVal0, denominatorR, denominatorR + numeratorR);
+        uint256 want0 = totalVal0 / 2;
 
         if (want0 <= fee0) {
-            // We have more token0 than needed – swap the excess to token1
-            uint256 swapAmt = fee0 - want0;
+            // We have more token0 than needed – swap the excess to token1.
+            //
+            // Guard: when want0 rounds to 0 (happens at heavily token1-skewed
+            // prices, e.g. a full-range position where token1 is very cheap),
+            // keep 1 unit of token0 so that Uniswap V3's increaseLiquidity can
+            // compute a non-zero liquidity delta.  The in-range formula uses
+            // min(L_from_token0, L_from_token1); if amount0 == 0 the result is
+            // always 0 and the call reverts with "Cannot add zero liquidity".
+            uint256 effectiveWant0 = (want0 == 0 && fee0 > 0) ? 1 : want0;
+            uint256 swapAmt = fee0 - effectiveWant0;
             if (swapAmt > 0) {
-                uint256 out = _swapWithSlippage(token0, token1, swapAmt, slippageBps);
-                return (fee0 - swapAmt, fee1 + out);
+                try this._swapWithSlippage(token0, token1, swapAmt, slippageBps) returns (uint256 out) {
+                    return (fee0 - swapAmt, fee1 + out);
+                } catch {
+                    // Swap failed – reinvest with the current unbalanced ratio.
+                    emit SwapSkipped(token0, token1, swapAmt, slippageBps);
+                }
             }
         } else {
-            // We need more token0 – swap some token1 to token0
-            uint256 want1   = FullMath.mulDiv(totalVal0, numeratorR, denominatorR + numeratorR);
-            uint256 swapAmt = fee1 > want1 ? fee1 - want1 : 0;
+            // We need more token0 – swap some token1 to token0.
+            // The optimal token1 side is also totalVal0/2 in value, converted to token1 units.
+            uint256 want1InToken0 = totalVal0 / 2; // token1-side value = same as token0 side (50/50)
+            uint256 want1         = FullMath.mulDiv(want1InToken0, numeratorR, denominatorR);
+            // Same guard as above but for the token1 side.
+            uint256 effectiveWant1 = (want1 == 0 && fee1 > 0) ? 1 : want1;
+            uint256 swapAmt = fee1 > effectiveWant1 ? fee1 - effectiveWant1 : 0;
             if (swapAmt > 0) {
-                uint256 out = _swapWithSlippage(token1, token0, swapAmt, slippageBps);
-                return (fee0 + out, fee1 - swapAmt);
+                try this._swapWithSlippage(token1, token0, swapAmt, slippageBps) returns (uint256 out) {
+                    return (fee0 + out, fee1 - swapAmt);
+                } catch {
+                    // Swap failed – reinvest with the current unbalanced ratio.
+                    emit SwapSkipped(token1, token0, swapAmt, slippageBps);
+                }
             }
         }
 
         return (fee0, fee1);
     }
 
-    /// @dev Execute a single-hop exact-input swap, using the contract's maxSlippageBps.
-    function _swap(address tokenIn, address tokenOut, uint256 amountIn) internal returns (uint256 amountOut) {
-        return _swapWithSlippage(tokenIn, tokenOut, amountIn, maxSlippageBps);
-    }
-
-    /// @dev Execute a single-hop exact-input swap with an explicit slippage tolerance.
-    function _swapWithSlippage(address tokenIn, address tokenOut, uint256 amountIn, uint16 slippageBps) internal returns (uint256 amountOut) {
+    /// @dev Core swap implementation. Private so it can be called safely from
+    ///      both zap functions and the guarded external wrapper.
+    function _executeSwap(address tokenIn, address tokenOut, uint256 amountIn, uint16 slippageBps) private returns (uint256 amountOut) {
         uint256 amountOutMin = _calcAmountOutMin(tokenIn, amountIn, slippageBps);
         IERC20(tokenIn).approve(SWAP_ROUTER, amountIn);
         amountOut = ISwapRouter(SWAP_ROUTER).exactInputSingle(
@@ -907,6 +1030,13 @@ contract UniV3AutoCompounder {
                 sqrtPriceLimitX96: 0
             })
         );
+    }
+
+    /// @dev External wrapper around _executeSwap so _rebalance can use try/catch.
+    ///      Must only be called by this contract itself via `this._swapWithSlippage(...)`.
+    function _swapWithSlippage(address tokenIn, address tokenOut, uint256 amountIn, uint16 slippageBps) public returns (uint256 amountOut) {
+        require(msg.sender == address(this), "internal only");
+        return _executeSwap(tokenIn, tokenOut, amountIn, slippageBps);
     }
 
     /// @dev Derive the time-weighted average tick over `twapPeriod` seconds.
@@ -1015,9 +1145,11 @@ contract UniV3AutoCompounder {
         emit PoolUpdated(_pool, _poolFee);
     }
 
-    /// @notice Update the maximum swap slippage tolerance. Maximum 500 bps (5%).
+    /// @notice Update the maximum swap slippage tolerance. Maximum 1000 bps (10%).
+    ///         Note: the pool fee is deducted separately in _calcAmountOutMin, so
+    ///         this value covers price-impact headroom only, not the pool fee.
     function setMaxSlippage(uint16 _maxSlippageBps) external onlyOwner {
-        require(_maxSlippageBps <= 500, "Slippage too high");
+        require(_maxSlippageBps <= 1000, "Slippage too high");
         maxSlippageBps = _maxSlippageBps;
         emit MaxSlippageUpdated(_maxSlippageBps);
     }

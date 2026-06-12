@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "forge-std/Test.sol";
+import {Test} from "forge-std/src/Test.sol";
 import "../src/InfiniteBoost.sol";
 import "../src/interfaces/IGauge.sol";
 import "../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
@@ -13,17 +13,17 @@ import "../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
         IERC20 public itpToken;
         IERC20 public veloToken;
         IERC20 public lpToken;
-        
+
         // direcciones simuladas de los usuarios
         address public user1;
         address public user2;
         address public user3;
         address public user4;
         address public user5;
-        address public dao; 
+        address public dao;
 
         // constantes de configuración inicial
-        uint256 constant INITIAL_BALANCE = 10000 ether; 
+        uint256 constant INITIAL_BALANCE = 10000 ether;
         uint256 constant DEPOSIT_AMOUNT = 10000 ether;
 
         //Configuracion inicial  de saldos y tokens para la prueba
@@ -60,7 +60,7 @@ import "../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
             user4 = address(0x4);
             user5 = address(0x5);
             dao = address(0x6);
-            
+
 
             vm.deal(user1, INITIAL_BALANCE);
             vm.deal(user2, INITIAL_BALANCE);
@@ -68,7 +68,7 @@ import "../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
             vm.deal(user4, INITIAL_BALANCE);
             vm.deal(user5, INITIAL_BALANCE);
 
-          
+
 
             deal(address(lpToken), user1, 1000000 ether);
             deal(address(lpToken), user2, 1000000 ether);
@@ -80,10 +80,10 @@ import "../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
             deal(address(veloToken), address(0x41C914ee0c7E1A5edCD0295623e6dC557B5aBf3C), 10000000000 ether);
         }
 
-        
-    
+
+
      //prueba de deposito s en diferentes tiempos, para verificar  y seguir las recompensas en el gauge y boost
-     
+
         function testUserDepositsWithIntervals() public {
     console.log("=== Inicio de prueba de deposito s y recompensas ===");
 
@@ -111,7 +111,7 @@ import "../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
     // dia 2: Distribucion de recompensas y deposito  de User3
     {
         vm.warp(block.timestamp + 1 days);
-        
+
         // Distribucion de recompensas
         vm.startPrank(0x41C914ee0c7E1A5edCD0295623e6dC557B5aBf3C);
         veloToken.approve(address(gauge), 1000 ether);
@@ -123,7 +123,7 @@ import "../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
         lpToken.approve(address(booster), DEPOSIT_AMOUNT);
         booster.deposit(DEPOSIT_AMOUNT, address(lpToken));
         vm.stopPrank();
-        
+
         // Verificacion de recompensas de User1
         vm.startPrank(user1);
         uint256 rewardsInGauge = gauge.earned(user1);
@@ -171,7 +171,7 @@ import "../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
     // dia 7: Verificaciones finales
     {
         vm.warp(block.timestamp + 2 days);
-        
+
         vm.startPrank(user1);
         uint256 rewardsInGauge = gauge.earned(user1);
         uint256 rewardsInBooster = booster.earned(user1, address(lpToken));
@@ -196,14 +196,14 @@ import "../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
         booster.claimBaseRewardTokenOwner(address(lpToken));
         console.log("DAO Balance inicial - VELO:", veloToken.balanceOf(address(0x9)));
         console.log("DAO Balance inicial - LP:", lpToken.balanceOf(address(0x9)));
-        
+
         uint256 balanceFee = booster.lpFee(address(lpToken));
         console.log("Balance Fee", balanceFee);
 
         booster.collectLpFee(address(lpToken), balanceFee);
         console.log("DAO Balance final - VELO:", veloToken.balanceOf(address(0x9)));
         console.log("DAO Balance final - LP:", lpToken.balanceOf(address(0x9)));
-        
+
         assertEq(100 ether, lpToken.balanceOf(address(0x9)), "Balance LP incorrecto para DAO");
         vm.stopPrank();
     }
@@ -227,24 +227,24 @@ import "../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
         console.log("User 4 (Gauge):", gauge.earned(user4));
         console.log("User 4 (Booster):", booster.earned(user4, address(lpToken)));
         console.log("User 5 (Gauge):", gauge.earned(user5));
-        
+
 
 
     }
 }
 
-        
+
          // prueba de configuración de la comision a 1% y comprobación del retiro con comision aplicada
 
             function test_SetFeePercentageToOnePercentAndWithdraw() public {
-            vm.startPrank(address(0x9)); 
+            vm.startPrank(address(0x9));
             booster.setFeePercentage(10); // 1% en base 1000
             vm.stopPrank();
 
             vm.startPrank(user1);
             lpToken.approve(address(booster), DEPOSIT_AMOUNT);
             booster.deposit(DEPOSIT_AMOUNT, address(lpToken));
-            
+
             uint256 initialLpBalance = lpToken.balanceOf(user1);
 
             booster.withdraw(DEPOSIT_AMOUNT, address(lpToken));
@@ -262,13 +262,13 @@ import "../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
         }
 
        // prueba de que solo el owner puede configurar la comision
-    
-        
+
+
         function test_SetFeePercentageNoOwner() public {
         vm.startPrank(user1);
         vm.expectRevert(abi.encodeWithSelector(
             Ownable.OwnableUnauthorizedAccount.selector,
-            user1 
+            user1
         ));
         booster.setFeePercentage(10);
         vm.stopPrank();
@@ -288,13 +288,13 @@ import "../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
     }
 
 
-    //prueba para setear las recompensas 
+    //prueba para setear las recompensas
     function testSetRewardPool() public {
         uint256 rewardAmount = 222 ether;
-        
+
         vm.startPrank(address(0x9));
         booster.setRewardPool(address(lpToken), rewardAmount);
-        
+
         (uint256 totalRewards, uint256 distributedRewards,) = booster.rewardPools(address(lpToken));
         assertEq(totalRewards, rewardAmount, "Total rewards should match set amount");
         assertEq(distributedRewards, 0, "Distributed rewards should start at 0");
@@ -304,7 +304,7 @@ import "../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
     // Prueba de prueba cuando hay recompensas disponibles
     function testDepositWithAvailableRewards() public {
         uint256 rewardAmount = 23 ether;
-        
+
         uint256 balancedelcontrato = IERC20(itpToken).balanceOf(address(booster));
         console.log(" BALANCE QUE PROBOCA EL ERRORRRRRRRR", balancedelcontrato);
 
@@ -312,11 +312,11 @@ import "../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
         vm.startPrank(address(0x9));
         booster.setRewardPool(address(lpToken), rewardAmount);
         vm.stopPrank();
-        
+
         vm.startPrank(user1);
         lpToken.approve(address(booster), DEPOSIT_AMOUNT);
         booster.deposit(DEPOSIT_AMOUNT, address(lpToken));
-        
+
         uint256 balance = booster.getBalanceOfLp(user1, address(lpToken));
         assertEq(balance, DEPOSIT_AMOUNT, "Deposit should be successful");
         vm.stopPrank();
@@ -328,7 +328,7 @@ import "../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
     //     vm.startPrank(address(0x9));
     //     booster.setRewardPool(address(lpToken), 0);
     //     vm.stopPrank();
-        
+
     //     // Intentar depositar
     //     vm.startPrank(user1);
     //     lpToken.approve(address(booster), DEPOSIT_AMOUNT);
@@ -346,20 +346,20 @@ import "../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 
         console.log("Total Rewards al principio", totalRewards1);
         console.log("Total Distribuido al principio", distributedRewards1);
-        
+
         vm.startPrank(user1);
         lpToken.approve(address(booster), DEPOSIT_AMOUNT);
         booster.deposit(DEPOSIT_AMOUNT, address(lpToken));
-        
+
         vm.warp(block.timestamp + 7 days);
-        
+
         uint256 initialBalance = itpToken.balanceOf(user1);
         booster.claimBoostRewards(address(lpToken));
         uint256 finalBalance = itpToken.balanceOf(user1);
-        
+
         uint256 claimedRewards = finalBalance - initialBalance;
         assert(claimedRewards > 0);
-        
+
         (uint256 totalRewards, uint256 distributedRewards,) = booster.rewardPools(address(lpToken));
 
         console.log("Total Rewards", totalRewards);
@@ -378,35 +378,35 @@ import "../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
         vm.startPrank(address(0x9));
         booster.setRewardPool(address(lpToken), rewardAmount);
         vm.stopPrank();
-        
+
         // Usuario 1 deposita
         vm.startPrank(user1);
         lpToken.approve(address(booster), DEPOSIT_AMOUNT);
         booster.deposit(DEPOSIT_AMOUNT, address(lpToken));
         vm.stopPrank();
-        
+
         vm.warp(block.timestamp + 1 days);
-        
+
         vm.startPrank(0x41C914ee0c7E1A5edCD0295623e6dC557B5aBf3C);
         veloToken.approve(address(gauge), 1000 ether);
         gauge.notifyRewardAmount(1000 ether);
         vm.stopPrank();
-        
+
         // Usuario 2 deposita
         vm.startPrank(user2);
         lpToken.approve(address(booster), DEPOSIT_AMOUNT);
         booster.deposit(DEPOSIT_AMOUNT, address(lpToken));
         vm.stopPrank();
-        
+
         vm.warp(block.timestamp + 6 days);
-        
+
         // Ambos usuarios reclaman recompensas
         vm.startPrank(user1);
         uint256 user1InitialBalance = itpToken.balanceOf(user1);
         booster.claimBoostRewards(address(lpToken));
         uint256 user1Rewards = itpToken.balanceOf(user1) - user1InitialBalance;
         vm.stopPrank();
-        
+
         vm.startPrank(user2);
         uint256 user2InitialBalance = itpToken.balanceOf(user2);
         uint256 balance1 = booster.earnedRewardToken(user1, address(lpToken));
@@ -414,14 +414,14 @@ import "../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
         booster.claimBoostRewards(address(lpToken));
         uint256 user2Rewards = itpToken.balanceOf(user2) - user2InitialBalance;
         vm.stopPrank();
-        
+
         console.log("USER 1 Recompemsas", user1Rewards);
         console.log("USER 2 Recompemsas", user2Rewards);
 
 
         assert(user1Rewards > 0 );
         assert(user2Rewards > 0);
-        
+
         assert(user1Rewards > user2Rewards);
     }
 
@@ -437,20 +437,20 @@ import "../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
     //     vm.startPrank(address(0x9));
     //     booster.setRewardPool(address(lpToken), rewardAmount);
     //     vm.stopPrank();
-        
+
     //     // varios usuarios depositan hasta agotar recompensas
     //     vm.startPrank(user1);
     //     lpToken.approve(address(booster), DEPOSIT_AMOUNT);
     //     booster.deposit(DEPOSIT_AMOUNT, address(lpToken));
     //     vm.stopPrank();
-        
+
     //     vm.warp(block.timestamp + 1 days);
-        
+
     //     // Reclamar todas las recompensas
     //     vm.startPrank(user1);
     //     booster.claimBoostRewards(address(lpToken));
     //     vm.stopPrank();
-        
+
     //     //  depositar mas cuando las recompensas estan agotadas
     //     vm.startPrank(user2);
     //     lpToken.approve(address(booster), DEPOSIT_AMOUNT);
@@ -468,7 +468,7 @@ import "../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
     }
 
 
-    
+
     function test_calculatePendingRewards() public {
     uint256 rewardAmount = 1000 ether;
     deal(address(itpToken), address(booster), 1000000 ether);
@@ -527,18 +527,18 @@ import "../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
     uint256 pendingAfterClaims = booster._calculatePendingRewards();
     console.log("Recompensas pendientes despues de los reclamos:", pendingAfterClaims);
     assert(pendingAfterClaims < newPendingRewards);
-    vm.stopPrank();     
+    vm.stopPrank();
     }
 
     // function testpruebasalidaconversor() public view returns(uint256){
     // uint256 inputAmount = 1 ether;
     // address lpTokenAddress = address(lpToken);
-    
+
     // console.log("Input Amount:", inputAmount);
     // console.log("LP Token Address:", lpTokenAddress);
-    
+
     // uint256 resultado = booster._rewardBoost(inputAmount, lpTokenAddress);
-    
+
     // console.log("Resultado conversion:", resultado);
     // return resultado;
     // }
