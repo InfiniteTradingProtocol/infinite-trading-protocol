@@ -3,6 +3,7 @@ pragma solidity ^0.8.26;
 
 import {Script} from "forge-std/src/Script.sol";
 import {console} from "forge-std/src/console.sol";
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {UniV3AutoCompounder} from "../src/UniV3AutoCompounder.sol";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -49,6 +50,7 @@ contract DeployUniV3AutoCompounder is Script {
         uint24  poolFee     = uint24(vm.envUint("POOL_FEE"));
         address pool        = vm.envAddress("POOL");
         address keeper      = vm.envAddress("KEEPER_ADDRESS");
+        address keeper2     = vm.envAddress("KEEPER_ADDRESS_2");
         address itpDao      = vm.envAddress("ITP_DAO");
 
         address deployer = vm.addr(deployerKey);
@@ -60,27 +62,34 @@ contract DeployUniV3AutoCompounder is Script {
         console.log("poolFee:         ", poolFee);
         console.log("pool:            ", pool);
         console.log("Initial keeper:  ", keeper);
+        console.log("Second keeper:   ", keeper2);
         console.log("ITP DAO:         ", itpDao);
         console.log("Fees: 1.5% DAO / 0.5% executor / 98% re-compounded");
 
         vm.startBroadcast(deployerKey);
 
-        UniV3AutoCompounder vault = new UniV3AutoCompounder(
-            token0,
-            token1,
-            poolFee,
-            pool,
-            keeper,
-            itpDao
+        // 1. Deploy the logic implementation (constructor disables direct initialization)
+        UniV3AutoCompounder impl = new UniV3AutoCompounder();
+
+        // 2. Encode the initialize() call
+        bytes memory initData = abi.encodeCall(
+            impl.initialize,
+            (token0, token1, poolFee, pool, keeper, itpDao, keeper2)
         );
+
+        // 3. Deploy ERC1967 proxy – calls initialize() atomically
+        ERC1967Proxy proxy = new ERC1967Proxy(address(impl), initData);
+        UniV3AutoCompounder vault = UniV3AutoCompounder(address(proxy));
 
         vm.stopBroadcast();
 
         console.log("--------------------------------------");
-        console.log("Deployed at:     ", address(vault));
+        console.log("Implementation:  ", address(impl));
+        console.log("Proxy (vault):   ", address(vault));
         console.log("Owner (DAO):     ", vault.owner());
         console.log("DAO address:     ", vault.dao());
         console.log("Initial keeper:  ", keeper);
+        console.log("Second keeper:   ", keeper2);
         console.log("DAO fee bps:     ", vault.DAO_FEE_BPS());
         console.log("Exec fee bps:    ", vault.EXECUTOR_FEE_BPS());
     }

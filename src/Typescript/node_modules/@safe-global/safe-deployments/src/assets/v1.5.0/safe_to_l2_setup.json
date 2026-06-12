@@ -1,0 +1,87 @@
+{
+  "released": true,
+  "contractName": "SafeToL2Setup",
+  "version": "1.5.0",
+  "deployments": {
+    "canonical": {
+      "address": "0x900C7589200010D6C6eCaaE5B06EBe653bc2D82a",
+      "codeHash": "0xf6034d841bcbff8912aa55526b0f1609212536aaf60bb16f5e8a269a4ab38f18"
+    }
+  },
+  "networkAddresses": {
+    "1": "canonical",
+    "63": "canonical",
+    "756": "canonical",
+    "757": "canonical",
+    "1672": "canonical",
+    "1995": "canonical",
+    "2201": "canonical",
+    "4153": "canonical",
+    "4217": "canonical",
+    "4326": "canonical",
+    "5003": "canonical",
+    "5424": "canonical",
+    "5887": "canonical",
+    "7979": "canonical",
+    "8150": "canonical",
+    "8453": "canonical",
+    "9302": "canonical",
+    "9746": "canonical",
+    "13441": "canonical",
+    "20994": "canonical",
+    "25363": "canonical",
+    "32380": "canonical",
+    "36900": "canonical",
+    "38833": "canonical",
+    "42431": "canonical",
+    "46630": "canonical",
+    "49088": "canonical",
+    "88811": "canonical",
+    "88817": "canonical",
+    "102030": "canonical",
+    "181228": "canonical",
+    "190415": "canonical",
+    "369369": "canonical",
+    "613419": "canonical",
+    "747474": "canonical",
+    "843843": "canonical",
+    "1440000": "canonical",
+    "1449000": "canonical",
+    "11142220": "canonical",
+    "11155111": "canonical",
+    "11155931": "canonical"
+  },
+  "abi": [
+    {
+      "inputs": [],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "singleton",
+          "type": "address"
+        }
+      ],
+      "name": "ChangedMasterCopy",
+      "type": "event"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "l2Singleton",
+          "type": "address"
+        }
+      ],
+      "name": "setupToL2",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ]
+}

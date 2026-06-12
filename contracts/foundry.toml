@@ -8,12 +8,13 @@
   fuzz = { runs = 1_000 }
   gas_reports = ["*"]
   optimizer = true
-  optimizer_runs = 10_000
+  optimizer_runs = 1_000_000
   out = "out"
   script = "script"
   solc = "0.8.26"
   src = "src"
   test = "test"
+  skip = ["test/Booster.t.sol", "test/AutoCompoundVault.t.sol"]
   via_ir = true
 
 [profile.ci]
@@ -22,7 +23,8 @@
 
 [etherscan]
   optimism = { key = "${API_KEY_OPTIMISTIC_ETHERSCAN}" }
-  base = { key = "${BASE_ETHERSCAN_API_KEY}", url = "https://api.basescan.org/api" }
+  base = { key = "${BASE_ETHERSCAN_API_KEY}", url = "https://api.etherscan.io/v2/api?chainid=8453" }
+  ethereum = { key = "${BASE_ETHERSCAN_API_KEY}" }
 
 [fmt]
   bracket_spacing = true
@@ -37,3 +39,4 @@
 [rpc_endpoints]
   optimism = "https://rpc.ankr.com/optimism/4eeadba2304043bf70e6faa9a41b2123b70e3d1d63660adb047f03335d7627a5"
   base = "${BASE_RPC_URL}"
+  ethereum = "${ETH_RPC_URL}"

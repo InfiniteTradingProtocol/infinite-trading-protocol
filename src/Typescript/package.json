@@ -1,0 +1,20 @@
+{
+  "name": "infinite-trading-scripts",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "propose-upgrade": "tsx proposeUpgradeV3.ts"
+  },
+  "dependencies": {
+    "@safe-global/api-kit": "^2.5.5",
+    "@safe-global/protocol-kit": "^5.1.0",
+    "@safe-global/types-kit": "^1.0.0",
+    "viem": "^2.21.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}
