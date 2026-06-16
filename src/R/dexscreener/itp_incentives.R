@@ -91,6 +91,9 @@ incentives = function(network,exchange,liquidity_percentage,lps) {
   # Fetch data for each LP
   for (lp in lps) {
     liquidity_data <- ds_price(pair = lp, network = network, exchange = exchange, liquidity = TRUE)
+    if (is.null(liquidity_data)) {
+      stop(paste("failed to fetch liquidity data for", lp, "from dexscreener"))
+    }
     usd_liquidity <- c(usd_liquidity, liquidity_data$usd / 2)
     prices <- c(prices, liquidity_data$price)
   }
