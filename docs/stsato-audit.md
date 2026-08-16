@@ -1,9 +1,9 @@
 # StSATO Security Audit Report
 
-**Prepared by:** infinitetrading.io  
-**Contract:** `StSATO` — `contracts/src/stsato.sol`  
-**Deployed:** Ethereum Mainnet [`0xdeE7f7A032326148E65EC3068F1c9b29E26B75b3`](https://etherscan.io/address/0xdee7f7a032326148e65ec3068f1c9b29e26b75b3)  
-**Date:** May 2026  
+**Prepared by:** infinitetrading.io
+**Contract:** `StSATO` — `contracts/src/stsato.sol`
+**Deployed:** Ethereum Mainnet [`0xdeE7f7A032326148E65EC3068F1c9b29E26B75b3`](https://etherscan.io/address/0xdee7f7a032326148e65ec3068f1c9b29e26b75b3)
+**Date:** May 2026
 **Solidity:** `0.8.26` | **EVM:** Shanghai | **OpenZeppelin:** v5
 
 ---
@@ -22,7 +22,7 @@ The StSATO contract adapts stEGGS for the SATO token on Ethereum mainnet. All mo
 |---|---|---|
 | `contracts/src/stsato.sol` | ~550 | Reviewed in full |
 
-**In scope:** all contract logic, bonding curve math, lending system, liquidation, fee mechanics, bootstrap, ownership.  
+**In scope:** all contract logic, bonding curve math, lending system, liquidation, fee mechanics, bootstrap, ownership.
 **Out of scope:** SATO token contract (`0x829f4B62EEBE12Af653b4dD4fFc480966F7d7f09`), frontend.
 
 ---
@@ -53,7 +53,7 @@ This was independently identified and resolved prior to deployment.
 
 ### 3.3 Fair-Launch Bootstrap — `setStart()` Sends All Supply to Dead Address
 
-**Original (stEGGS):**  
+**Original (stEGGS):**
 The bootstrap mint may go to the owner or a designated address.
 
 **StSATO:**
@@ -65,7 +65,7 @@ All stSATO minted at bootstrap goes directly and permanently to `0xdead`. The de
 
 ### 3.4 `lastPrice` Initialisation — Bug Fix
 
-**Original (stEGGS):**  
+**Original (stEGGS):**
 `lastPrice` was left at `0` after `setStart()`, causing `_safetyCheck` to pass trivially on the first trade (any price ≥ 0) and exposing incorrect price data.
 
 **StSATO:**

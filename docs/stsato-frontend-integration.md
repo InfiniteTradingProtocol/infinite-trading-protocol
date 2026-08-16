@@ -119,7 +119,7 @@ Returns the user's active loan. All values 18 decimals. Returns `(0, 0, 0)` if n
 - `borrowed` — SATO borrowed
 - `endDate` — unix timestamp when loan expires
 
-> **IMPORTANT — how to check for an active loan:**  
+> **IMPORTANT — how to check for an active loan:**
 > Always use `borrowed > 0` to determine whether a loan exists. Do NOT rely solely on `isLoanExpired` — it returns `true` for addresses with no loan at all (because `endDate = 0 < block.timestamp`). See the pitfall note below.
 
 #### `Loans(address) → (uint256 collateral, uint256 borrowed, uint256 endDate, uint256 numberOfDays)`
@@ -128,7 +128,7 @@ Raw mapping — same as above plus original `numberOfDays`.
 #### `isLoanExpired(address _address) → bool`
 `true` if the user's loan `endDate` is in the past. **Also returns `true` for addresses that have never borrowed** (because the default `endDate` is `0`, which is always less than `block.timestamp`).
 
-> **PITFALL — `isLoanExpired` does NOT mean "has a loan":**  
+> **PITFALL — `isLoanExpired` does NOT mean "has a loan":**
 > ```
 > isLoanExpired = true  →  EITHER: loan expired  OR: no loan ever opened
 > isLoanExpired = false →  loan exists and is still active
@@ -378,7 +378,7 @@ await contract.closePosition()
 
 ### Check Liquidation Health
 
-> **IMPORTANT — `lastLiquidationDate` may be ahead of the current time:**  
+> **IMPORTANT — `lastLiquidationDate` may be ahead of the current time:**
 > At deployment, `lastLiquidationDate` is initialised to the *next* midnight after deploy. For the first ~24 hours this value is **greater than** `block.timestamp`. A naive `nowSec - lastLiq` with BigInt arithmetic will underflow (wrap to a huge positive number), making `daysBehind` appear enormous. Always guard with a `> nowSec` check.
 
 ```js
