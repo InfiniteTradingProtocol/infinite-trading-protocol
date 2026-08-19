@@ -1,14 +1,24 @@
 # 🧑‍💼 Managers: Deploy Vaults & Tradebots
 
-This page is for managers using the frontend manager section and API to deploy and operate Agentic Managed Vaults.
+This page is for managers using the frontend manager area and API to deploy and operate Agentic Managed Vaults.
+
+## Frontend manager navigation map
+
+Manager interface sections:
+
+- **Gas Wallets** ([https://www.infinitetrading.io/managers?section=gaswallets](https://www.infinitetrading.io/managers?section=gaswallets)): create, associate, monitor, and refill gas wallets
+- **Managed Vaults** ([https://www.infinitetrading.io/managers?section=vaults](https://www.infinitetrading.io/managers?section=vaults)): review vaults and trader linkage
+- **API Linked Vaults** ([https://www.infinitetrading.io/managers?section=api](https://www.infinitetrading.io/managers?section=api)): verify vault-to-gas-wallet associations
+- **Trading Bots** ([https://www.infinitetrading.io/managers?section=bots](https://www.infinitetrading.io/managers?section=bots)): deploy bots, edit parameters, and generate API code snippets
+- **Create Vault** (`Create Vault` tab in manager navigation): create a new dHEDGE vault from the manager workflow
 
 ## What this guide covers
 
-- creating and funding gas wallets
-- API key usage model
-- creating a vault and enabling trader permissions
-- approving assets
-- configuring and running the tradebot (`setBot`)
+- creating and securing gas wallet credentials
+- refilling gas wallets from the frontend ("Fill Gas Tank" flow)
+- creating a vault and setting trader permissions
+- approving assets and deploying the bot
+- generating tradebot code snippets for automation
 
 ## Prerequisites
 
@@ -16,49 +26,45 @@ This page is for managers using the frontend manager section and API to deploy a
 - A vault address (created on dHEDGE app flow)
 - Supported network selection (Optimism, Base, Arbitrum, or Polygon where applicable)
 
-## Step 1) Get manager/gas-wallet credentials
+## Step 1) Create and secure a gas wallet
 
-Manager workflows use API keys for privileged actions.
+Generate a wallet from **Gas Wallets** (backed by `GET /createGasWallet`).
 
-- Manager onboarding/key flow is exposed in the manager area.
-- Gas-wallet APIs use a gas-wallet API key for execution calls.
+The generated payload includes:
 
-You should keep these keys private and never expose them client-side in public code.
-
-## Step 2) Create a gas wallet
-
-Create a dedicated gas wallet for automated operations:
-
-`GET /createGasWallet`
-
-The response includes:
-
-- wallet address
+- gas wallet address
 - private key
 - gas-wallet API key
 
-Store all three securely.
+Immediately:
 
-## Step 3) Fund gas wallet
+- back up private key and API key in secure storage
+- associate the wallet in the manager flow so it appears in the manager wallet list
 
-Fund with native gas token:
+## Step 2) Refill the gas tank in the frontend
 
-- ETH for Optimism/Base/Arbitrum
-- POL for Polygon
+In **Gas Wallets**, **Managed Vaults**, and **Trading Bots**, each linked wallet shows a gas-tank icon.
 
-Check balance:
+1. Click the gas-tank icon (**Click to refill**)
+2. Confirm network and destination wallet in the refill modal
+3. Enter amount (USD), use MAX or percentage shortcuts if needed
+4. Submit **Refill** and confirm wallet transaction
 
-`GET /getGasBalance?apiKey=...&network=...`
+Operational notes:
 
-## Step 4) Create vault + add trader permission
+- ETH is used on Optimism/Base/Arbitrum/Ethereum
+- POL is used on Polygon
+- Balance checks are available through `GET /getGasBalance?apiKey=...&network=...`
 
-Create vault in the manager-supported vault creation flow (dHEDGE-based flow), then add the gas wallet address as a **Trader** for that vault.
+## Step 3) Create vault and assign trader permission
 
-Verify trader status:
+Create the vault in the dHEDGE flow, then set the gas wallet as **Trader** for that vault.
+
+Verify trader assignment:
 
 `GET /isPoolTrader?apiKey=...&protocol=dhedge&network=...&pool=...`
 
-## Step 5) Approve assets for execution
+## Step 4) Deploy the tradebot from Trading Bots
 
 Before bot trades can run, approve each required asset:
 
@@ -73,33 +79,34 @@ Typical payload fields include:
 - `asset` (e.g., USDC, WETH, WBTC, MORPHO)
 - `platform` (e.g., odos)
 
-## Step 6) Configure the tradebot
+Then configure bot parameters and deploy through `POST /setBot`:
 
-Set the bot configuration:
+`pair`, `side`, `threshold`, `slippage`, `share`, `platform`, `lending`
 
-`POST /setBot`
+## Step 5) Generate tradebot code snippets in the frontend
 
-Typical config includes:
+In **Trading Bots**:
 
-- `pair` (e.g., `ETH-USD`, `BTC-USD`)
-- `side` (`long`, `neutral`, `short`, `hold`)
-- `threshold`
-- `slippage`
-- `share`
-- `platform`
-- `lending` (`true`/`false`)
+1. Open create/edit bot dialog
+2. Click **Show API Code**
+3. Select output format:
+   - Webhook URL
+   - Python
+   - R
+   - JavaScript
+4. Copy snippet and run it in the target automation environment
 
-This is the core endpoint that activates your Agentic Managed Vault behavior.
+These snippets are generated from the current bot payload, matching the selected vault, pair, network, and side.
 
-## Step 7) Verify bot status
+## Step 6) Verify bot status
 
 `GET /getBotStatus?apiKey=...&protocol=dhedge&network=...&pool=...`
 
 Use this to confirm side, pair, and active status.
 
-## Step 8) Optional immediate trade
+## Step 7) Optional immediate trade
 
-If you need immediate positioning:
+For immediate positioning:
 
 `POST /vaultTrade`
 
@@ -109,6 +116,7 @@ with `from`, `to`, `share`, `slippage`, and routing fields.
 
 - not funding gas wallet before approvals/trades
 - forgetting to add gas wallet as vault Trader
+- skipping the refill step after creating a new gas wallet
 - calling `setBot` before approvals are done
 - misconfigured side/share/slippage values
 

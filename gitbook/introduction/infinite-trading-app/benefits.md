@@ -2,9 +2,9 @@
 
 ## Self-custody first
 
-Users connect their own wallet and interact directly with vault contracts. You keep control of your assets before and after every transaction.
+Users connect self-custody wallets and interact directly with vault contracts. Asset control remains with the wallet owner before and after each transaction.
 
-## Real strategy infrastructure, not just dashboards
+## Strategy infrastructure
 
 Infinite Trading combines:
 
@@ -22,7 +22,7 @@ ITP utility grows as products are used:
 3. **Ecosystem deployments (including cbEGGS and stSATO context)**
 4. **API and automation usage by strategy operators**
 
-This creates a stronger token narrative around real product usage rather than pure speculation.
+This supports token utility through measurable product usage across the ecosystem.
 
 ## Transparent execution
 

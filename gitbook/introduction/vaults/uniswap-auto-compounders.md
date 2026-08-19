@@ -1,6 +1,6 @@
 # Uniswap Auto-Compounders
 
-Uniswap auto-compounder vaults convert concentrated liquidity management into a simpler vault-share experience.
+Uniswap auto-compounder vaults convert concentrated liquidity management into a structured vault-share model.
 
 ## How they work (high level)
 
@@ -15,7 +15,7 @@ Uniswap auto-compounder vaults convert concentrated liquidity management into a 
 - cbEGGS/WETH
 - ITP/cbXRP
 
-## Where the edge comes from (without secret sauce)
+## Strategy mechanics
 
 - disciplined fee harvesting cadence
 - automated reinvestment logic

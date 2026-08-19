@@ -1,18 +1,18 @@
 ---
-description: How to invest the decentralized automated strategies?
+description: Setup guide for Infinite Trading vault participation
 ---
 
-# 🛠️ Getting set up
+# 🛠️ Setup workflow
 
 ## 1) Create a wallet
 
 - Install Rabby or MetaMask
-- Secure your seed phrase offline
-- Keep a small gas balance on the network you want to use
+- Secure the seed phrase offline
+- Keep a small gas balance on the selected network
 
 ## 2) Fund the wallet
 
-- Buy assets on an exchange and withdraw to your wallet
+- Buy assets on an exchange and withdraw to the wallet
 - For Base/Optimism products, bridge or withdraw directly to the target chain
 - Keep gas token available for approvals and transactions
 
@@ -22,7 +22,7 @@ description: How to invest the decentralized automated strategies?
 - Connect wallet
 - Switch to the required network when prompted
 
-## 4) Make your first vault deposit
+## 4) Execute initial vault deposit
 
 1. Choose a vault
 2. Select input token and amount
@@ -34,7 +34,7 @@ description: How to invest the decentralized automated strategies?
 
 - Review position share and current value
 - Monitor vault performance metrics and benchmark context
-- Withdraw partially or fully when desired
+- Withdraw partially or fully based on strategy requirements
 
 ## 6) Operational best practices
 

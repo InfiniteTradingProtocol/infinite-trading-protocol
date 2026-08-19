@@ -17,4 +17,4 @@ Infinite Trading vaults are built to package advanced onchain strategy execution
 
 ## About strategy descriptions
 
-This documentation explains strategy intent and behavior without exposing proprietary implementation details.
+This documentation describes strategy intent, behavior, and risk profile at an architectural level.

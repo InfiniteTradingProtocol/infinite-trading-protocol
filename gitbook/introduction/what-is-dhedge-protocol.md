@@ -48,7 +48,7 @@ At the ecosystem level, value accrual can come from:
 3. **Cross-product user migration** from deployment-specific frontends into ITP vault products
 4. **API and automation usage** that scales with strategy activity
 
-For cbEGGS specifically, the practical monetization path is not just token price exposure: it is the ongoing product activity around cbEGGS pairs and vault flows that can generate repeat fee surfaces inside the ITP ecosystem.
+For cbEGGS specifically, value capture is associated with ongoing product activity around cbEGGS pairs and vault flows, which can generate recurring fee surfaces inside the ITP ecosystem.
 
 ## Legacy note on dHEDGE
 

@@ -23,7 +23,7 @@ Infinite Trading is built for users who want:
 - composable products across Base and Optimism ecosystems
 - performance-focused vault design with clear fee mechanics
 
-## The ITP growth flywheel
+## ITP value flow
 
 At a high level:
 
@@ -35,7 +35,7 @@ At a high level:
 
 ## Where to start
 
-If you're new here, begin with:
+Recommended reading order:
 
 - **Infinite Trading App** for user workflows
 - **ITP Token & Staking** for token utility and rewards context

@@ -1,8 +1,8 @@
 # 🛣️ Product Roadmap
 
-This roadmap summarizes active direction from frontend and cloud workstreams.
+This roadmap summarizes active direction from product and infrastructure workstreams.
 
-## Frontend roadmap themes
+## Application roadmap themes
 
 ### 1) Auto-compounder UX expansion
 
@@ -41,6 +41,6 @@ This roadmap summarizes active direction from frontend and cloud workstreams.
 
 - expansion of ITP-aligned auto-compounder and vault families
 - deeper integration between deployment-specific products and the main app
-- stronger utility flywheel around ITP through real usage
+- stronger utility linkage around ITP through sustained product usage
 
 > Roadmap items are directional and can evolve with market, security, and liquidity conditions.

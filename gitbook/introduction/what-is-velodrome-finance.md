@@ -30,12 +30,12 @@ The process is straightforward:
 - more consistent compounding cadence
 - cleaner UX for LP holders who want automation
 
-## Why this is bullish for ITP
+## Impact on ITP ecosystem operations
 
 As more TVL moves through ITP-connected Velodrome products, the ITP ecosystem gets:
 
-- broader token utility narrative
-- stronger product-market fit for automation users
+- broader token utility across active products
+- stronger operational fit for automation users
 - repeatable launch patterns for additional strategy vaults
 
 ## Supported pool set and expansion path
