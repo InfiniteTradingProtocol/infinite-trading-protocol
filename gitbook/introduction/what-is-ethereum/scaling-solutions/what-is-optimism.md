@@ -1,27 +1,30 @@
-# 🔴 What is Optimism ?
+# 🔴 What Is Optimism?
 
+Optimism is an Ethereum Layer 2 network built for lower transaction costs and higher execution throughput while retaining Ethereum settlement guarantees.
 
+## Why Optimism matters in this ecosystem
 
-### Fast, stable, scalable Ethereum.
+- deep liquidity across major DeFi venues
+- broad support for EVM tooling and wallets
+- strong suitability for automated, high-frequency strategy operations
 
-OP Mainnet is a fast, stable, and scalable L2 blockchain built by Ethereum developers, for Ethereum developers. Built as a minimal extension to existing Ethereum software, OP Mainnet's EVM-equivalent architecture scales your Ethereum apps without surprises. If it works on Ethereum, it works on OP Mainnet at a fraction of the cost.
+## Relevance to Infinite Trading products
 
-#### OP Mainnet goes Superchain
+Optimism is used for:
 
-The Superchain project seeks to maximize interoperability and composability between different chains using the OP Stack, and integrate siloed L2s into a single, cohesive layer.
+- vault operations in Optimism-based product lines
+- staking and token-related workflows where configured
+- manager and bot execution paths that require lower operational cost
 
-OP Stack
+## Operational checklist
 
-The modular code powering OP Mainnet and the Superchain.
+1. Confirm that the selected vault or feature is on Optimism.
+2. Hold ETH for gas.
+3. Verify all approval and transaction details before signature.
+4. Monitor slippage and route quality during volatile periods.
 
-[View docs](http://stack.optimism.io/)
+## Risk and execution notes
 
-The Superchain
-
-Building towards a unified future that doesn’t fracture our ecosystems, our applications, or our ability to work together.
-
-[Get in touch](https://forms.monday.com/forms/055862bfb7f4091be3db2567288296f8?r=use1)
-
-**Developer resources**
-
-Everything you need to get started building on OP Mainnet, all in one place.
+- bridge finality and transfer windows vary by route
+- gas cost can increase during congestion
+- execution quality depends on pool depth and market conditions
