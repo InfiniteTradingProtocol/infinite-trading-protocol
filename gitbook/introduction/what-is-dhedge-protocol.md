@@ -50,6 +50,6 @@ At the ecosystem level, value accrual can come from:
 
 For cbEGGS specifically, value capture is associated with ongoing product activity around cbEGGS pairs and vault flows, which can generate recurring fee surfaces inside the ITP ecosystem.
 
-## Legacy note on dHEDGE
+## ChamberFi (previously dHEDGE)
 
-dHEDGE remains part of the historical and operational context for certain manager workflows, but ITP documentation now centers on ITP-native product surfaces and deployment architecture.
+ChamberFi is the continuation of the earlier dHEDGE product line. Certain manager workflows and vault operations still rely on that lineage, while current ITP documentation focuses on ITP-native product surfaces and deployment architecture.
