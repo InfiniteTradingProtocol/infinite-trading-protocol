@@ -1,55 +1,38 @@
-# 🚀 Ecosystem Deployments: stSATO + cbEGGS
+# 🏛️ ChamberFi (previously dHEDGE)
 
-ITP has evolved from early dHEDGE-native deployment patterns into a broader product ecosystem with independent deployments and vault primitives.
+ChamberFi is the continuation of the earlier dHEDGE product line and remains an important protocol layer in manager and vault workflows.
 
-## stSATO
+## Protocol role
 
-stSATO is an ITP ecosystem deployment based on a bonding-curve liquid-staking model:
+ChamberFi provides managed-vault infrastructure where:
 
-- backed by SATO mechanics
-- buy/sell/borrow flows with explicit contract semantics
-- no admin control after launch bootstrap sequence
-- fully onchain state for transparency and integrations
+- vault managers define strategy mandates
+- users deposit into shared vault structures
+- portfolio actions execute through onchain transactions
+- performance and position states remain transparent onchain
 
-**Official site:** https://stsato.org
+## Relevance to Infinite Trading
 
-## cbEGGS
+Within the ITP ecosystem, ChamberFi-aligned flows are used for:
 
-cbEGGS is another ITP-linked deployment with token + vault-like behavior on Base, used in ecosystem products and liquidity surfaces.
+- manager vault operations
+- trader permission workflows
+- strategy execution through API-linked automation
+- bot-controlled side and allocation updates
 
-It contributes ecosystem activity through:
+## Operational model
 
-- mint/burn user flows
-- protocol TVL visibility
-- LP integrations including cbEGGS-based pairs
-- compatibility with ITP-aligned vault and frontend integrations
+The standard workflow is:
 
-**Official site:** https://cbeggs.finance
+1. Create or select a compatible vault.
+2. Configure trader permissions for the execution wallet.
+3. Set asset approvals required for strategy routes.
+4. Apply strategy parameters through bot configuration.
+5. Monitor positions, balances, and strategy state continuously.
 
-## Contracts and token addresses
+## Risk and controls
 
-| Asset | Network | Address |
-|---|---|---|
-| stSATO | Ethereum | `0xe6A47B3a09aCD76d2B42268b7F6B2D65603eFAB8` |
-| SATO (backing token) | Ethereum | `0x829f4B62EEBE12Af653b4dD4fFc480966F7d7f09` |
-| cbEGGS | Base | `0xdDbAbe113c376f51E5817242871879353098c296` |
-| ITP (Base) | Base | `0xBA8CD87120aCA631F59231f9fD6c5469BbEE3440` |
-| ITP (Optimism, Staking V1 token) | Optimism | `0x0a7B751FcDBBAA8BB988B9217ad5Fb5cfe7bf7A0` |
-| ITP (Optimism, legacy burn-history tracked token) | Optimism | `0x2aF68d8e6f0964789e3ee0e54427258B69E9B8F0` |
-
-> Always verify addresses in the current product UI and official channels before transacting.
-
-## How ITP can capture value around these deployments
-
-At the ecosystem level, value accrual can come from:
-
-1. **Vault fee surfaces** around cbEGGS-linked products (entry/compounding/performance structures where configured)
-2. **Liquidity and compounding activity** in ITP-related pairs
-3. **Cross-product user migration** from deployment-specific frontends into ITP vault products
-4. **API and automation usage** that scales with strategy activity
-
-For cbEGGS specifically, value capture is associated with ongoing product activity around cbEGGS pairs and vault flows, which can generate recurring fee surfaces inside the ITP ecosystem.
-
-## ChamberFi (previously dHEDGE)
-
-ChamberFi is the continuation of the earlier dHEDGE product line. Certain manager workflows and vault operations still rely on that lineage, while current ITP documentation focuses on ITP-native product surfaces and deployment architecture.
+- execution quality depends on liquidity and route conditions
+- manager permissions should be restricted and audited
+- gas-wallet balances must be maintained to avoid operational interruptions
+- all contract interactions should be verified in the live interface before submission
