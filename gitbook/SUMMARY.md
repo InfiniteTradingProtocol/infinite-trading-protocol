@@ -7,6 +7,7 @@
   * [✨ Benefits](introduction/infinite-trading-app/benefits.md)
   * [🛠️ Setup Workflow](introduction/infinite-trading-app/getting-set-up.md)
   * [💰 Understanding Fees](introduction/infinite-trading-app/understanding-fees.md)
+* [📈 Infinite Trading Perpetuals](introduction/infinite-trading-perpetuals.md)
 * [🪙 ITP Token & Staking](introduction/itp-token-and-staking.md)
 * [🔥 ITP Burns](introduction/itp-burns.md)
 * [🏦 Vaults](introduction/vaults/README.md)

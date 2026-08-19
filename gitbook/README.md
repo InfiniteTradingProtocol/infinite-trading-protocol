@@ -9,6 +9,7 @@ Infinite Trading Protocol (ITP) is a DeFi infrastructure and product ecosystem f
 This documentation is focused on the current ITP stack:
 
 - ITP-native vault products (Uniswap and Velodrome auto-compounders)
+- Infinite Trading Perpetuals (Orderly deployment)
 - Strategy automation infrastructure (Infinite Trading Cloud)
 - stSATO and cbEGGS ecosystem deployments
 - API gateway + execution layer for automated portfolio actions
