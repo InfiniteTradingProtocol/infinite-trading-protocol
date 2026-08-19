@@ -1,3 +1,32 @@
 # 🔮 Scaling Solutions
 
-&#x20;  Ethereum scaling solutions are technologies that make Ethereum faster and more efficient. Two popular solutions are Polygon and Optimism. These solutions help reduce transaction costs and speed up the network by processing transactions in a different way. Polygon acts like a special area connected to Ethereum, making transactions quicker and cheaper. Optimism uses a technique called Optimistic Rollups to bundle transactions together, making Ethereum handle more transactions at once. These solutions are important because they improve Ethereum's ability to handle lots of users and make it easier for people to use decentralized applications.
+Ethereum Layer 2 networks increase throughput and reduce transaction costs while preserving Ethereum settlement guarantees.
+
+## Why this section exists
+
+Infinite Trading products operate across multiple EVM networks. Network selection affects:
+
+- execution cost
+- transaction confirmation speed
+- available liquidity routes
+- product availability by vault type
+
+## Core networks used in this documentation
+
+- **Optimism**: deep DeFi liquidity and mature infrastructure
+- **Base**: efficient execution and active ecosystem growth
+- **Polygon**: broad EVM compatibility and low-fee transaction environments
+
+## Operational considerations
+
+Before using any vault or manager workflow:
+
+1. Confirm the required network in the product interface.
+2. Hold sufficient native gas token for approvals and transactions.
+3. Verify destination addresses and bridge routes before transfer.
+
+## Related pages
+
+- [🔴 What Is Optimism?](what-is-optimism.md)
+- [🔵 What Is Base?](what-is-base.md)
+- [🟣 What Is Polygon?](what-is-polygon.md)

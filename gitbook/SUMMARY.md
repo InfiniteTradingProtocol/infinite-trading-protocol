@@ -5,7 +5,7 @@
 * [🌌 Infinite Trading Protocol](README.md)
 * [💻 Infinite Trading App](introduction/infinite-trading-app/README.md)
   * [✨ Benefits](introduction/infinite-trading-app/benefits.md)
-  * [🛠️ Getting set up](introduction/infinite-trading-app/getting-set-up.md)
+  * [🛠️ Setup Workflow](introduction/infinite-trading-app/getting-set-up.md)
   * [💰 Understanding Fees](introduction/infinite-trading-app/understanding-fees.md)
 * [🪙 ITP Token & Staking](introduction/itp-token-and-staking.md)
 * [🔥 ITP Burns](introduction/itp-burns.md)
@@ -21,11 +21,11 @@
 
 ## 📚 Additional references
 
-* [💎 What is Ethereum?](introduction/what-is-ethereum/README.md)
+* [💎 What Is Ethereum?](introduction/what-is-ethereum/README.md)
   * [🔮 Scaling Solutions](introduction/what-is-ethereum/scaling-solutions/README.md)
     * [🟣 What Is Polygon?](introduction/what-is-ethereum/scaling-solutions/what-is-polygon.md)
-    * [🔴 What is Optimism?](introduction/what-is-ethereum/scaling-solutions/what-is-optimism.md)
-    * [🔵 What is Base?](introduction/what-is-ethereum/scaling-solutions/what-is-base.md)
+    * [🔴 What Is Optimism?](introduction/what-is-ethereum/scaling-solutions/what-is-optimism.md)
+    * [🔵 What Is Base?](introduction/what-is-ethereum/scaling-solutions/what-is-base.md)
   * [🐇 Rabby Wallet](introduction/what-is-ethereum/rabby-wallet.md)
   * [🦊 MetaMask](introduction/what-is-ethereum/metamask.md)
 * [🏛️ ChamberFi (previously dHEDGE)](introduction/what-is-dhedge-protocol.md)

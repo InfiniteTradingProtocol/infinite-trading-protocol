@@ -34,7 +34,7 @@ The Infinite Trading App is the user layer for participating in ITP-powered vaul
 ## Quick links
 
 - [✨ Benefits](benefits.md)
-- [🛠️ Getting set up](getting-set-up.md)
+- [🛠️ Setup workflow](getting-set-up.md)
 - [💰 Understanding Fees](understanding-fees.md)
 
 ## Who this is for
