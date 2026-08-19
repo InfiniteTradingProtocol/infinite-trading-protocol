@@ -20,12 +20,16 @@ The Infinite Trading App is the user layer for participating in ITP-powered vaul
    - Velodrome auto-compounders
    - Agentic Managed Vaults (Infinite Trading Cloud)
 
-2. **ITP ecosystem pages**
+2. **Perpetuals interface**
+   - Infinite Trading Perpetuals powered by Orderly infrastructure
+   - Live access: `https://perps.infinitetrading.io`
+
+3. **ITP ecosystem pages**
    - ITP utility and staking context
    - stSATO and cbEGGS deployment context
    - Fee and value-accrual explanation
 
-3. **Builder and manager tooling**
+4. **Builder and manager tooling**
    - API gateway for automation
    - Strategy control via authenticated API routes
    - Introspection docs for AI agents (`/llmIntrospect`)

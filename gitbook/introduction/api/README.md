@@ -17,8 +17,15 @@ This separation improves reliability, endpoint management, and protocol-specific
 - Configure and update automated bot behavior (`setBot`, status, deletion flows)
 - Execute vault trades (`vaultTrade`)
 - Manage approvals and portfolio operations
-- Support lending/borrowing workflows across integrated routes
+- Support lending and credit workflows (`lend`, `unlend`, `borrow`, `repay`)
+- Support Aave V3 route operations (`aaveV3`, health-factor and pool-data flows)
+- Support additional lending routes including Compound and Fluid where enabled
 - Return machine-readable endpoint docs with `llmIntrospect`
+
+## API reference
+
+- Interactive endpoint reference: `https://api.infinitetrading.io/__docs__`
+- Machine-readable endpoint metadata: `/llmIntrospect`
 
 ## Authentication model
 
@@ -39,6 +46,80 @@ Documented examples from the current gateway stack include:
 | deposit / withdraw / composition reads | free-tier in current documentation |
 
 Exact behavior can vary by route and environment, but the model is consistently usage-based.
+
+## Endpoint billing matrix
+
+### Paid endpoints
+
+The following endpoints are billed in current gateway operations:
+
+- `vaultTrade` (trade class)
+- `approve` (approval class)
+- `lend`
+- `unlend`
+- `borrow`
+- `repay`
+- `aaveV3` (including lending subroutes such as lend, unlend, borrow, repay)
+- `addLiquidity`
+- `removeLiquidity`
+- `mintManagerFee`
+
+Additional lending operations supported in current cloud API workflows are also billed when executed:
+
+- `depositFluid`
+- `withdrawFluid`
+- `depositCompoundV3`
+- `withdrawCompoundV3`
+- `POST /api/cex/chargeFee` (CEX trading fee charge)
+
+### Free endpoints
+
+The following endpoints are currently free (no explicit API action fee):
+
+- `associateGasWallet`
+- `createGasWallet`
+- `deactivateCEXBot`
+- `deassociateGasWallet`
+- `deleteBot`
+- `deleteCEXBot`
+- `deleteCEXSubaccount`
+- `getAllBots`
+- `getAllCEXSubaccounts`
+- `getAllGasBalance`
+- `getAllYields`
+- `getAssociatedGasWallets`
+- `getCEXSide`
+- `getCandles`
+- `getContract`
+- `getEstimatedAnualYield`
+- `getGasBalance`
+- `getGasWalletPools`
+- `getHealthFactor`
+- `getNewApiKey`
+- `getPoolAaveData`
+- `getSymbol`
+- `getTicks`
+- `getTotalYield`
+- `linkGasWallet`
+- `llmIntrospect`
+- `poolComposition`
+- `registerCEXSubaccount`
+- `setBot`
+- `setCEXSide`
+- `setCEXStrategy`
+- `unlinkGasWallet`
+- `GET /api/cex/calculateFee`
+- `GET /eth-price`
+- `GET /token-price/:network`
+- `GET /calculate-fee/:action/:network`
+- `GET /all-actions`
+- `GET /test/:network`
+
+### Notes on CEX and documentation endpoints
+
+- `https://api.infinitetrading.io/__docs__` provides interactive route documentation.
+- `/llmIntrospect` provides machine-readable endpoint metadata.
+- CEX fee charging is exposed through dedicated CEX fee routes in the cloud API stack.
 
 ## Why this matters for ITP
 
