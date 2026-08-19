@@ -1,0 +1,3 @@
+# 🔮 Scaling Solutions
+
+&#x20;  Ethereum scaling solutions are technologies that make Ethereum faster and more efficient. Two popular solutions are Polygon and Optimism. These solutions help reduce transaction costs and speed up the network by processing transactions in a different way. Polygon acts like a special area connected to Ethereum, making transactions quicker and cheaper. Optimism uses a technique called Optimistic Rollups to bundle transactions together, making Ethereum handle more transactions at once. These solutions are important because they improve Ethereum's ability to handle lots of users and make it easier for people to use decentralized applications.
