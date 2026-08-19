@@ -34,7 +34,8 @@ It contributes ecosystem activity through:
 | SATO (backing token) | Ethereum | `0x829f4B62EEBE12Af653b4dD4fFc480966F7d7f09` |
 | cbEGGS | Base | `0xdDbAbe113c376f51E5817242871879353098c296` |
 | ITP (Base) | Base | `0xBA8CD87120aCA631F59231f9fD6c5469BbEE3440` |
-| ITP (Optimism) | Optimism | `0x2aF68d8e6f0964789e3ee0e54427258B69E9B8F0` |
+| ITP (Optimism, Staking V1 token) | Optimism | `0x0a7B751FcDBBAA8BB988B9217ad5Fb5cfe7bf7A0` |
+| ITP (Optimism, legacy burn-history tracked token) | Optimism | `0x2aF68d8e6f0964789e3ee0e54427258B69E9B8F0` |
 
 > Always verify addresses in the current product UI and official channels before transacting.
 

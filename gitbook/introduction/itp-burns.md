@@ -30,7 +30,8 @@ Burn-address tracking commonly includes:
 
 ## Token context used in burn tracking
 
-- **ITP (Optimism)**: `0x2aF68d8e6f0964789e3ee0e54427258B69E9B8F0`
+- **ITP (Optimism, Staking V1 token in app flows)**: `0x0a7B751FcDBBAA8BB988B9217ad5Fb5cfe7bf7A0`
+- **ITP (Optimism, legacy burn-history dataset token)**: `0x2aF68d8e6f0964789e3ee0e54427258B69E9B8F0`
 - Initial supply reference used in burn dashboards: `1,000,000,000 ITP`
 
 ## Why this matters for holders
