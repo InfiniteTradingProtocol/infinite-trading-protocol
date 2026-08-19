@@ -28,5 +28,5 @@
     * [🔵 What is Base?](introduction/what-is-ethereum/scaling-solutions/what-is-base.md)
   * [🐇 Rabby Wallet](introduction/what-is-ethereum/rabby-wallet.md)
   * [🦊 MetaMask](introduction/what-is-ethereum/metamask.md)
-* [🏛️ Chamberfi / dHEDGE context](introduction/what-is-dhedge-protocol.md)
-* [🛞 Velodrome / Aerodrome context](introduction/what-is-velodrome-finance.md)
+* [🏛️ ChamberFi (previously dHEDGE)](introduction/what-is-dhedge-protocol.md)
+* [🛞 Velodrome / Aerodrome](introduction/what-is-velodrome-finance.md)
