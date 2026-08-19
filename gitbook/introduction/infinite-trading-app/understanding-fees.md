@@ -34,7 +34,7 @@ This model allows:
 - gas wallet abstraction for strategy operators
 - programmable execution across networks
 
-## Why this is good for users
+## User impact
 
 - Fees are explicit and tied to concrete operations.
 - Most user-facing vault analytics already reflect net behavior after fee effects.

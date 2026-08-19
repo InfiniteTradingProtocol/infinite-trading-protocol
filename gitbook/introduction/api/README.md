@@ -42,7 +42,7 @@ Exact behavior can vary by route and environment, but the model is consistently 
 
 ## Why this matters for ITP
 
-The API is not just support tooling. It is core product infrastructure that:
+The API is core product infrastructure that:
 
 - powers vault automation and strategy operations
 - enables third-party integration paths

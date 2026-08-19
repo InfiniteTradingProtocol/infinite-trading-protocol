@@ -1,6 +1,6 @@
 # 🔥 ITP Burns
 
-ITP has an active burn narrative tied to ecosystem operations.
+ITP burn activity is tied to ecosystem operations.
 
 ## Why burns exist
 
@@ -36,4 +36,4 @@ Burn-address tracking commonly includes:
 
 ## Why this matters for holders
 
-The ITP thesis is usage-driven. Burn mechanics are most meaningful when combined with growing ecosystem activity across vaults, LP products, and automation infrastructure.
+Burn mechanics should be assessed alongside overall product usage across vaults, LP products, and automation infrastructure.

@@ -1,6 +1,6 @@
 # 🪙 ITP Token & Staking (Staking V1)
 
-You’re right to expect concrete details. This section now documents the actual ITP staking implementation used in production flows.
+This section documents the ITP staking implementation used in production flows.
 
 ## Network and contract addresses (current Staking V1 flow)
 
@@ -22,9 +22,9 @@ Core user actions:
 4. Withdraw on unlock (or early withdraw with penalty)
 5. Optionally extend lock
 
-## Contract functions used by the frontend
+## Core staking actions and methods
 
-From the Staking V1 ABI integration:
+Staking V1 exposes the following primary methods:
 
 - `deposit(uint256 amount, uint256 lockMultiplier)`
 - `withdraw(uint256[] tokenIds)`
@@ -33,7 +33,7 @@ From the Staking V1 ABI integration:
 - `getStakeInfo(address account)`
 - `getVaultInfo()`
 
-Admin/treasury functions exposed in ABI also include:
+Operational methods also include:
 
 - `depositRewards(uint256 amount)`
 - `withdrawRewards(uint256 amount)`
@@ -41,9 +41,9 @@ Admin/treasury functions exposed in ABI also include:
 - `burnPenalty(uint256 amount)`
 - `convertPenaltyIntoRewards(uint256 amount)`
 
-## Staking mechanics reflected in UI
+## Staking metrics shown in the app
 
-The staking UI reads and displays:
+The staking interface displays:
 
 - `totalStaked`
 - `totalRewards`
@@ -53,37 +53,22 @@ The staking UI reads and displays:
 - `rewardsRatePerLockMultiplierBps`
 - `penaltyRateBps`
 
-User-facing behavior includes:
+Staking behavior includes:
 
 - dynamic APY by lock period (1Y/2Y/3Y/4Y)
 - rewards projection by amount + lock duration
 - early-withdraw penalty explanation (decreasing over lock time)
 - lock table with status and action buttons
 
-## Where this is implemented (frontend repo)
+## Interface behavior
 
-Primary implementation surfaces:
-
-- `app/staking/page.tsx` (main staking page and contract calls)
-- `components/LocksActions.tsx` (withdraw, earlyWithdraw, extendLock)
-- `components/TableLocks.tsx` (lock table/status UX)
-- `abi/ITP/ItpStakingV1.json` and `abi/ITP/ItpStakingV1.ts` (contract ABI)
-- `constants/index.ts` (staking contract + token + oracle addresses)
-- `app/api/tvl/_lib/staking.ts` (staking TVL aggregation and caching)
-- `types/staking.ts` (staking data structures used in UI)
-
-## Where this is represented in this protocol repo
-
-This repository includes staking analytics/context artifacts used by the ecosystem docs/tooling, including:
-
-- `src/R/utils/staking_yield.R` (staking yield modeling utility)
-- `images/staking_yield.png` (staking-yield visualization asset)
+The app workflow includes approvals, lock creation, lock extension, standard withdrawal after unlock, and early withdrawal with penalty conditions.
 
 ## Burns and penalties relationship
 
 Staking penalties and burn metrics are part of the staking contract state model (`totalPenalty`, `totalPenaltyBurned`) and are surfaced in frontend staking analytics.
 
-For broader ecosystem burn context (including operations/revenue narrative), see [🔥 ITP Burns](itp-burns.md).
+For broader ecosystem burn context (including operations and revenue linkage), see [🔥 ITP Burns](itp-burns.md).
 
 ## Practical notes for users
 

@@ -1,5 +1,5 @@
 ---
-description: Unlock the full potential of automated trading, AI and DeFi.
+description: Infinite Trading App overview
 ---
 
 # 💻 Infinite Trading App

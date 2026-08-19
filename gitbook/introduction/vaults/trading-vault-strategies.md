@@ -1,15 +1,15 @@
 # Agentic Managed Vaults (Infinite Trading Cloud)
 
-These vaults are connected to Infinite Trading Cloud strategy infrastructure and API-managed execution, with software agents continuously managing risk posture and vault state transitions.
+These vaults are connected to Infinite Trading Cloud strategy infrastructure and API-managed execution, with automated controllers managing risk posture and vault state transitions.
 
 ## What makes them different
 
 - strategy signal generation and updates from cloud workflows
 - operational control via authenticated API actions
 - deployable across multiple supported EVM networks
-- agentic risk management loops that shift side/exposure based on strategy state
+- automated risk-management loops that shift side/exposure based on strategy state
 
-## Strategy styles (without exposing proprietary logic)
+## Strategy styles
 
 - **Trend-following rotations**: switch between risk-on and defensive states
 - **Neutral/cash states**: preserve optionality during weak conditions
@@ -27,4 +27,4 @@ These vaults are connected to Infinite Trading Cloud strategy infrastructure and
 
 - performance can differ by market regime
 - active automation improves consistency, not certainty
-- strategy discipline matters more than short-term hype
+- performance depends on disciplined execution across market regimes
