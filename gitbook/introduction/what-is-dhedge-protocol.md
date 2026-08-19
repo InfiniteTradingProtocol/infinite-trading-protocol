@@ -11,6 +11,8 @@ stSATO is an ITP ecosystem deployment based on a bonding-curve liquid-staking mo
 - no admin control after launch bootstrap sequence
 - fully onchain state for transparency and integrations
 
+**Official site:** https://stsato.org
+
 ## cbEGGS
 
 cbEGGS is another ITP-linked deployment with token + vault-like behavior on Base, used in ecosystem products and liquidity surfaces.
@@ -21,6 +23,20 @@ It contributes ecosystem activity through:
 - protocol TVL visibility
 - LP integrations including cbEGGS-based pairs
 - compatibility with ITP-aligned vault and frontend integrations
+
+**Official site:** https://cbeggs.finance
+
+## Contracts and token addresses
+
+| Asset | Network | Address |
+|---|---|---|
+| stSATO | Ethereum | `0xe6A47B3a09aCD76d2B42268b7F6B2D65603eFAB8` |
+| SATO (backing token) | Ethereum | `0x829f4B62EEBE12Af653b4dD4fFc480966F7d7f09` |
+| cbEGGS | Base | `0xdDbAbe113c376f51E5817242871879353098c296` |
+| ITP (Base) | Base | `0xBA8CD87120aCA631F59231f9fD6c5469BbEE3440` |
+| ITP (Optimism) | Optimism | `0x2aF68d8e6f0964789e3ee0e54427258B69E9B8F0` |
+
+> Always verify addresses in the current product UI and official channels before transacting.
 
 ## How ITP can capture value around these deployments
 

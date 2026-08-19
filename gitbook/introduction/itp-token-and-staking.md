@@ -26,6 +26,12 @@ In newer boosted LP patterns, reward delivery can include:
 - ITP is strongest when used inside product flows (vaults, LP, automation), not treated as an isolated ticker.
 - The core thesis is usage-driven utility: more real product activity can support a stronger long-term token narrative.
 
+## Burns and deflation context
+
+ITP also has a burn narrative linked to ecosystem operations and DAO activity.
+
+See [🔥 ITP Burns](itp-burns.md) for tracking context, burn sources, and token details used in burn monitoring.
+
 ## Important note
 
 Token markets are volatile. Always evaluate product risk, liquidity, and strategy behavior before allocating capital.

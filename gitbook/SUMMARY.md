@@ -8,6 +8,7 @@
   * [🛠️ Getting set up](introduction/infinite-trading-app/getting-set-up.md)
   * [💰 Understanding Fees](introduction/infinite-trading-app/understanding-fees.md)
 * [🪙 ITP Token & Staking](introduction/itp-token-and-staking.md)
+* [🔥 ITP Burns](introduction/itp-burns.md)
 * [🏦 Vaults](introduction/vaults/README.md)
   * [Uniswap Auto-Compounders](introduction/vaults/uniswap-auto-compounders.md)
   * [Velodrome Auto-Compounders](introduction/vaults/velodrome-auto-compounders.md)
