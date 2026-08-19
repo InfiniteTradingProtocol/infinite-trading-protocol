@@ -4,33 +4,41 @@ description: Unlock the full potential of automated trading, AI and DeFi.
 
 # 💻 Infinite Trading App
 
-<figure><img src="/broken/files/ewhlOyd1ipSdsZeF5t7l" alt=""><figcaption></figcaption></figure>
+The Infinite Trading App is the user layer for participating in ITP-powered vaults, automation strategies, and ecosystem products.
 
-#### About Infinite Trading
+## What the app does
 
-Infinite Trading is a groundbreaking marketplace and protocol that enables you to invest in fully automated trading strategies within the Ethereum DeFi ecosystem. Our platform leverages AI and automated trading to provide you with exceptional investment opportunities while removing the reliance on centralized exchanges.
+- Connects self-custody wallets to strategy vaults
+- Shows live vault metrics and performance context
+- Provides one-click entry/exit flows for supported products
+- Surfaces risk/performance data in a way users can act on
 
-#### Key Benefits
+## Core product surfaces
 
-* AI-powered Automated Trading: Unlock the potential of AI and automated trading strategies to optimize your investments.
-* Marketplace of Strategies: Discover and invest in the best trading strategies available within the Ethereum DeFi ecosystem.
-* Decentralized Approach: Embrace the power of on-chain, non-custodial, and permissionless crypto funds, giving you full control over your finances.
-* Enhanced Security: Leverage the security benefits of decentralized blockchain networks for your transactions and investments.
+1. **Vault marketplace**
+   - Uniswap auto-compounders
+   - Velodrome auto-compounders
+   - Agentic Managed Vaults (Infinite Trading Cloud)
+
+2. **ITP ecosystem pages**
+   - ITP utility and staking context
+   - stSATO and cbEGGS deployment context
+   - Fee and value-accrual explanation
+
+3. **Builder and manager tooling**
+   - API gateway for automation
+   - Strategy control via authenticated API routes
+   - Introspection docs for AI agents (`/llmIntrospect`)
+   - Manager workflows for gas wallets, API keys, approvals, and bot setup
 
 ## Quick links
 
-{% content-ref url="/broken/pages/N1w0xvYRnymBcPxuU8Io" %}
-[Broken link](/broken/pages/N1w0xvYRnymBcPxuU8Io)
-{% endcontent-ref %}
+- [✨ Benefits](benefits.md)
+- [🛠️ Getting set up](getting-set-up.md)
+- [💰 Understanding Fees](understanding-fees.md)
 
-{% content-ref url="benefits.md" %}
-[benefits.md](benefits.md)
-{% endcontent-ref %}
+## Who this is for
 
-## Get Started
-
-We've put together some helpful guides for you to get setup with our product quickly and easily.
-
-{% content-ref url="getting-set-up.md" %}
-[getting-set-up.md](getting-set-up.md)
-{% endcontent-ref %}
+- Users who want strategy exposure without custody risk
+- Advanced users who want LP and compounding products
+- Managers and builders who want programmable strategy execution
