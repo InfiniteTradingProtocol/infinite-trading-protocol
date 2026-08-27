@@ -86,6 +86,8 @@ prices = []
 # Fetch data for each LP
 for lp in lps:
     liquidity_data = ds_price(pair=lp, network="optimism", exchange="velodromeV2", liquidity=True)
+    if liquidity_data is None:
+        raise RuntimeError(f"failed to fetch liquidity data for {lp} from dexscreener")
     usd_liquidity.append(liquidity_data["usd"] / 2)
     prices.append(liquidity_data["price"])
     print(f"LP: {lp}, Liquidity: {usd_liquidity[-1]}")

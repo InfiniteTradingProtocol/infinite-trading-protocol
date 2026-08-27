@@ -468,10 +468,13 @@ contract InfiniteBoost is ReentrancyGuard, Ownable, Pausable {
         uint256 userBalance = balanceOf[msg.sender][lpToken];
         require(userBalance > 0, "No balance to withdraw" );
 
+        IGauge gauge = gauges[lpToken];
+        _updateRewards(msg.sender, lpToken);
+        rewards[msg.sender][lpToken] = 0;
+        userRewardPerTokenPaid[msg.sender][lpToken] = gauge.rewardPerToken();
 
         balanceOf[msg.sender][lpToken]=0;
 
-        IGauge gauge = gauges[lpToken];
         gauge.withdraw(userBalance);
         IERC20(lpToken).safeTransfer(msg.sender, userBalance);
 

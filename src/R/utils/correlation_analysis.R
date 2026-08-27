@@ -49,6 +49,7 @@ end_date <- "2023-11-01"
 # FTSE 100 Index
 symbol <- "^FTSE"
 getSymbols(symbol, from = start_date, to = end_date, src = "yahoo")
+FTSE <- to.monthly(`^FTSE`, OHLC = TRUE, indexAt = "endof")
 
 # S&P 500 E-mini Futures
 symbol <- "ES=F"
