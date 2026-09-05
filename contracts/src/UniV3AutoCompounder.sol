@@ -263,6 +263,15 @@ contract UniV3AutoCompounder {
     uint256 public totalShares;
     mapping(address => uint256) public userShares;
 
+    /// @dev Minimum liquidity permanently locked (burned to address(0)) on the
+    ///      very first deposit, mirroring Uniswap V2's MINIMUM_LIQUIDITY defense.
+    ///      Prevents a first-depositor share-inflation attack where an attacker
+    ///      front-runs the vault's first real deposit with a dust deposit, then
+    ///      permissionlessly calls the NFPM's increaseLiquidity() directly to
+    ///      inflate the liquidity/share denominator and round the next
+    ///      depositor's shares down to zero.
+    uint256 public constant MINIMUM_LIQUIDITY = 1000;
+
     // ── Events ────────────────────────────────────────────────────────────────
     event Deposited(address indexed user, uint256 tokenId, uint256 liquidity, uint256 shares);
     event Withdrawn(address indexed user, uint256 liquidity, uint256 amount0, uint256 amount1);
@@ -395,7 +404,12 @@ contract UniV3AutoCompounder {
         // Uses liquidityBefore (pre-deposit) as denominator to prevent dilution.
         uint256 shares;
         if (totalShares == 0) {
-            shares = uint256(liquidityAdded);
+            // First-depositor protection: permanently lock MINIMUM_LIQUIDITY
+            // shares (unowned, never redeemable) so the liquidity/share ratio
+            // can never be inflated to zero for a subsequent depositor.
+            require(uint256(liquidityAdded) > MINIMUM_LIQUIDITY, "Deposit too small to seed vault");
+            shares = uint256(liquidityAdded) - MINIMUM_LIQUIDITY;
+            totalShares += MINIMUM_LIQUIDITY; // locked, held by no address
         } else {
             require(liquidityBefore > 0, "Invariant: shares exist but no liquidity");
             shares = (uint256(liquidityAdded) * totalShares) / liquidityBefore;
@@ -672,7 +686,10 @@ contract UniV3AutoCompounder {
 
         // Share accounting (same formula as deposit())
         if (totalShares == 0) {
-            shares = uint256(liquidityAdded);
+            // First-depositor protection: see deposit() for rationale.
+            require(uint256(liquidityAdded) > MINIMUM_LIQUIDITY, "Deposit too small to seed vault");
+            shares = uint256(liquidityAdded) - MINIMUM_LIQUIDITY;
+            totalShares += MINIMUM_LIQUIDITY; // locked, held by no address
         } else {
             require(liquidityBefore > 0, "Invariant: shares exist but no liquidity");
             shares = (uint256(liquidityAdded) * totalShares) / liquidityBefore;
