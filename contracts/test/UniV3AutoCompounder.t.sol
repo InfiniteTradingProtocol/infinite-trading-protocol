@@ -49,6 +49,15 @@ interface ISwapRouter {
 }
 
 interface INonfungiblePositionManager {
+    struct IncreaseLiquidityParams {
+        uint256 tokenId;
+        uint256 amount0Desired;
+        uint256 amount1Desired;
+        uint256 amount0Min;
+        uint256 amount1Min;
+        uint256 deadline;
+    }
+
     function positions(uint256 tokenId)
         external
         view
@@ -66,6 +75,10 @@ interface INonfungiblePositionManager {
             uint128 tokensOwed0,
             uint128 tokensOwed1
         );
+
+    function increaseLiquidity(IncreaseLiquidityParams calldata params)
+        external
+        returns (uint128 liquidity, uint256 amount0, uint256 amount1);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -197,7 +210,10 @@ contract UniV3AutoCompounderTest is Test {
 
         assertGt(shares, 0,            "User should have shares after deposit");
         assertGt(vault.tokenId(), 0,   "tokenId should be set after first mint");
-        assertEq(vault.totalShares(), shares, "totalShares should equal user shares (single depositor)");
+        // First deposit permanently locks MINIMUM_LIQUIDITY shares (unowned) to
+        // prevent first-depositor share-inflation attacks, so totalShares is
+        // MINIMUM_LIQUIDITY greater than the depositor's own share balance.
+        assertEq(vault.totalShares(), shares + vault.MINIMUM_LIQUIDITY(), "totalShares should equal user shares plus locked MINIMUM_LIQUIDITY");
 
         console.log("tokenId:    ", vault.tokenId());
         console.log("userShares: ", shares);
@@ -221,6 +237,91 @@ contract UniV3AutoCompounderTest is Test {
         assertGt(liqAfterSecond, liqAfterFirst, "Second deposit should increase position liquidity");
         console.log("liquidity after 1st:", liqAfterFirst);
         console.log("liquidity after 2nd:", liqAfterSecond);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  test_FirstDepositorShareInflationAttack_IsBlocked
+    //
+    //  Reproduces the "first-depositor share inflation" attack described in
+    //  the ITP-DISCLOSURE.pdf security report (finding F-1):
+    //
+    //   1. Attacker deposits a tiny amount (1 wei of liquidity), becoming the
+    //      first depositor and minting the vault's NFT position.
+    //   2. Attacker permissionlessly calls the Uniswap V3 NFPM's
+    //      increaseLiquidity() DIRECTLY (bypassing the vault entirely) to
+    //      inflate positions(tokenId).liquidity — the share denominator —
+    //      without minting any additional vault shares for themselves.
+    //   3. Victim then deposits a normal amount. Pre-fix, victim's shares
+    //      would round down to zero (liquidityAdded * totalShares /
+    //      liquidityBefore, with totalShares=1 and liquidityBefore inflated),
+    //      letting the attacker redeem 100% of the vault's real liquidity by
+    //      withdrawing their 1 share.
+    //
+    //  Post-fix, the vault permanently locks MINIMUM_LIQUIDITY shares on the
+    //  first deposit, so the attacker cannot set totalShares to 1 low enough
+    //  to zero out the victim's share of a much larger liquidity pool that
+    //  is not backed by their own deposit.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function test_FirstDepositorShareInflationAttack_IsBlocked() public {
+        address attacker = address(0xA77ACC);
+        deal(WETH, attacker, 1 ether);
+        deal(USDC, attacker, 3_000e6);
+
+        // Step 1: attacker becomes first depositor with a tiny deposit.
+        // Deposit must exceed MINIMUM_LIQUIDITY to succeed (enforced by the fix).
+        vm.startPrank(attacker);
+        IERC20(WETH).approve(address(vault), 1 ether);
+        IERC20(USDC).approve(address(vault), 3_000e6);
+        // Use a small-but-valid amount so the attacker doesn't spend much,
+        // but still clears the MINIMUM_LIQUIDITY seeding requirement.
+        vault.deposit(0.001 ether, 3e6, tickLower, tickUpper);
+        vm.stopPrank();
+
+        uint256 attackerShares = vault.userShares(attacker);
+        assertGt(attackerShares, 0, "Attacker should hold some shares after seeding");
+
+        // Step 2: attacker inflates the position's liquidity directly via the
+        // NFPM, completely bypassing the vault's deposit()/zap() share logic.
+        deal(WETH, attacker, 10 ether);
+        deal(USDC, attacker, 30_000e6);
+        vm.startPrank(attacker);
+        IERC20(WETH).approve(POSITION_MANAGER, 10 ether);
+        IERC20(USDC).approve(POSITION_MANAGER, 30_000e6);
+        INonfungiblePositionManager(POSITION_MANAGER).increaseLiquidity(
+            INonfungiblePositionManager.IncreaseLiquidityParams({
+                tokenId: vault.tokenId(),
+                amount0Desired: 10 ether,
+                amount1Desired: 30_000e6,
+                amount0Min: 0,
+                amount1Min: 0,
+                deadline: block.timestamp + 600
+            })
+        );
+        vm.stopPrank();
+
+        uint128 inflatedLiquidity = vault.totalLiquidity();
+        console.log("attacker shares after seed deposit:", attackerShares);
+        console.log("totalShares after seed deposit:    ", vault.totalShares());
+        console.log("inflated position liquidity:       ", inflatedLiquidity);
+
+        // Step 3: victim deposits a normal amount.
+        deal(WETH, USER, 1 ether);
+        deal(USDC, USER, 3_000e6);
+        uint256 victimShares = _deposit(1 ether, 3_000e6);
+
+        console.log("victim shares after deposit:        ", victimShares);
+
+        // The core exploit this test guards against: victim's shares must
+        // NOT round down to zero despite the attacker's direct liquidity
+        // inflation of the denominator.
+        assertGt(victimShares, 0, "Victim shares must not round to zero (share inflation attack)");
+
+        // The victim should be able to withdraw a proportional, non-trivial
+        // amount of their own deposit back out.
+        vm.prank(USER);
+        vault.withdraw(victimShares);
+        assertGt(IERC20(WETH).balanceOf(USER) + IERC20(USDC).balanceOf(USER), 0, "Victim should recover funds");
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -491,8 +592,10 @@ contract UniV3AutoCompounderTest is Test {
         uint256 userLiq  = vault.userLiquidity(USER);
         uint128 totalLiq = vault.totalLiquidity();
 
-        // Single depositor owns 100 % so userLiquidity == totalLiquidity
-        assertEq(userLiq, totalLiq, "Single depositor should own all liquidity");
+        // Single depositor owns all shares EXCEPT the permanently locked
+        // MINIMUM_LIQUIDITY, so userLiquidity is just under totalLiquidity.
+        assertLt(userLiq, totalLiq, "Depositor should own less than 100% due to locked MINIMUM_LIQUIDITY");
+        assertApproxEqAbs(userLiq, totalLiq, vault.MINIMUM_LIQUIDITY() + 1, "Locked liquidity gap should be tiny");
     }
 
     // ─────────────────────────────────────────────────────────────────────────
