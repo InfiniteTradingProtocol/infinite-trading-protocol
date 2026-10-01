@@ -10,12 +10,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ITP · Vault Factory Admin</title>
-  <link rel="stylesheet" href="style.css?v=2">
+  <link rel="stylesheet" href="style.css?v=3">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.4/ethers.umd.min.js"
           integrity="sha384-6Zl0Pc8zjSz8KvmNeXRvUQgY4ryFb+BwDvKCmLYcBME0joAaru491tQgi9B7zsMM"
           crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-  <script src="config.js?v=2"></script>
-  <script src="app.js?v=2" defer></script>
+  <script src="config.js?v=4"></script>
+  <script src="app.js?v=4" defer></script>
 </head>
 <body>
   <header class="topbar">
@@ -84,6 +84,12 @@
         </div>
         <button id="buildHarvestAll" class="btn">Build</button>
         <div id="harvestAllTx"></div>
+      </div>
+      <div class="card">
+        <h3>Rescue stuck tokens (all vaults, one Safe batch)</h3>
+        <p class="muted">Scans every vault for ITP, the paired token and VELO left idle in the contract, and builds one <code>inCaseTokensGetStuck(token)</code> call per non-zero balance. Empty balances are skipped. LP (<code>want</code>) can never be withdrawn this way.</p>
+        <button id="scanRescue" class="btn">Scan vaults</button>
+        <div id="rescueResult"></div>
       </div>
     </section>
 

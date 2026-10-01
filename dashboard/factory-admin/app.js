@@ -45,6 +45,8 @@
     "function want() view returns (address)",
     "function gauge() view returns (address)",
     "function output() view returns (address)",
+    "function lpToken0() view returns (address)",
+    "function lpToken1() view returns (address)",
     "function unirouter() view returns (address)",
     "function balance() view returns (uint256)",
     "function totalSupply() view returns (uint256)",
@@ -101,7 +103,7 @@
   // Velodrome factories for non-vault pools are labelled in routes.
   const VOTER_ABI = ["function gauges(address pool) view returns (address)", "function isAlive(address gauge) view returns (bool)"];
   const PAIR_ABI = ["function token0() view returns (address)", "function token1() view returns (address)", "function stable() view returns (bool)"];
-  const ERC20_ABI = ["function symbol() view returns (string)"];
+  const ERC20_ABI = ["function symbol() view returns (string)", "function decimals() view returns (uint8)", "function balanceOf(address) view returns (uint256)"];
 
   const state = {
     read: null,
@@ -737,6 +739,102 @@
     panel.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
+  // ---------- rescue stuck tokens ----------
+
+  async function scanStuckTokens() {
+    const out = [];
+    await Promise.all(
+      state.vaults.map(async (v) => {
+        const c = new ethers.Contract(v.address, VAULT_ABI, state.read);
+        const [t0, t1] = await Promise.all([c.lpToken0(), c.lpToken1()]);
+        // The vault refuses to release its LP (want), so only pair tokens and the reward token are rescuable.
+        const tokens = [...new Set([t0, t1, v.output].map((t) => ethers.getAddress(t)))].filter((t) => !eq(t, v.want));
+        await Promise.all(
+          tokens.map(async (t) => {
+            const erc = new ethers.Contract(t, ERC20_ABI, state.read);
+            const [bal, sym, dec] = await Promise.all([erc.balanceOf(v.address), safeCall(erc.symbol(), short(t)), safeCall(erc.decimals(), 18)]);
+            // Ignore dust below 0.0001 token; rounding leftovers are not worth a call.
+            const dust = 10n ** BigInt(Math.max(Number(dec) - 4, 0));
+            if (bal >= dust) out.push({ vault: v, token: t, symbol: sym, decimals: Number(dec), balance: bal });
+          }),
+        );
+      }),
+    );
+    return out.sort((a, b) => a.vault.name.localeCompare(b.vault.name) || a.symbol.localeCompare(b.symbol));
+  }
+
+  function rescueTx(i) {
+    return {
+      label: `${i.vault.name}: rescue ${fmt(i.balance, i.decimals, 6)} ${i.symbol}`,
+      to: i.vault.address,
+      data: vIface.encodeFunctionData("inCaseTokensGetStuck", [i.token]),
+      sender: `vault owner (${labelFor(i.vault.owner)})`,
+    };
+  }
+
+  async function onScanRescue() {
+    const box = $("rescueResult");
+    box.replaceChildren(h("p", { class: "muted" }, "Scanning vault balances…"));
+    try {
+      const items = await scanStuckTokens();
+      if (!items.length) {
+        box.replaceChildren(h("p", { class: "result ok" }, "No rescuable balances (above dust) in any vault. Nothing to do."));
+        return;
+      }
+      const viaFactory = (i) => eq(i.vault.owner, CFG.factory);
+      const rescuable = items.filter((i) => !viaFactory(i));
+      const skipped = items.length - rescuable.length;
+      const owners = new Set(rescuable.map((i) => i.vault.owner.toLowerCase()));
+      const slot = h("div", {});
+      const nodes = [
+        h(
+          "div",
+          { class: "table-wrap" },
+          h(
+            "table",
+            {},
+            h("thead", {}, h("tr", {}, ...["Vault", "Token", "Amount", "Sent to"].map((t) => h("th", {}, t)))),
+            h(
+              "tbody",
+              {},
+              items.map((i) =>
+                h(
+                  "tr",
+                  {},
+                  h("td", {}, i.vault.name),
+                  h("td", {}, addrLink(i.token, i.symbol)),
+                  h("td", {}, fmt(i.balance, i.decimals, 6)),
+                  h("td", {}, viaFactory(i) ? badge("warn", "factory-owned: skipped") : labelFor(i.vault.owner)),
+                ),
+              ),
+            ),
+          ),
+        ),
+        h("p", { class: "muted" }, `${rescuable.length} rescue call(s). Tokens go to the vault owner, which must be the direct caller, so they cannot go through Multicall3; export them as one Safe batch so they execute in a single transaction.`),
+        h("p", { class: "result warn" }, "⚠ These idle tokens would otherwise be compounded into LP for depositors on the next harvest."),
+        skipped ? h("p", { class: "result warn" }, `⚠ ${skipped} balance(s) are in factory-owned vaults; the factory has no rescue function. Transfer those vaults to the DAO first.`) : null,
+        owners.size > 1 ? h("p", { class: "result warn" }, "⚠ Vaults have different owners; each call must be sent by its own vault owner.") : null,
+        h(
+          "div",
+          { class: "row" },
+          h("button", {
+            class: "btn primary",
+            disabled: !rescuable.length,
+            onclick: () => {
+              rescuable.forEach((i) => addToBatch(rescueTx(i)));
+              slot.replaceChildren(h("span", { class: "result ok" }, `Added ${rescuable.length} call(s) to the batch. Open the Batch tab to export them for the Safe.`));
+            },
+          }, `Add all ${rescuable.length} to batch`),
+          h("button", { class: "btn", disabled: !rescuable.length, onclick: () => showTx(slot, () => rescuable.map(rescueTx)) }, "Show / simulate each"),
+        ),
+        slot,
+      ];
+      box.replaceChildren(...nodes.filter(Boolean));
+    } catch (e) {
+      box.replaceChildren(h("div", { class: "result err" }, `✗ ${decodeError(e)}`));
+    }
+  }
+
   function buildHarvestAll() {
     const recipient = requireAddress($("harvestRecipient").value, "Recipient");
     const active = state.vaults.filter((v) => v.active && !v.paused);
@@ -968,6 +1066,7 @@
     });
     $("refresh").addEventListener("click", refresh);
     $("buildHarvestAll").addEventListener("click", () => showTx("harvestAllTx", buildHarvestAll));
+    $("scanRescue").addEventListener("click", onScanRescue);
     $("knownImpls").addEventListener("change", (e) => {
       $("newVaultImpl").value = e.target.value;
     });
