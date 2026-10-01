@@ -1,0 +1,182 @@
+<!doctype html>
+<!--
+  ITP Vault Factory admin dashboard (static, no build step, no secrets).
+  Run locally so wallet extensions can inject:
+    cd dashboard/factory-admin && python3 -m http.server 8765 --bind 127.0.0.1
+  then open http://127.0.0.1:8765/
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ITP · Vault Factory Admin</title>
+  <link rel="stylesheet" href="style.css?v=2">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.4/ethers.umd.min.js"
+          integrity="sha384-6Zl0Pc8zjSz8KvmNeXRvUQgY4ryFb+BwDvKCmLYcBME0joAaru491tQgi9B7zsMM"
+          crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="config.js?v=2"></script>
+  <script src="app.js?v=2" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">∞</span>
+      <div>
+        <div class="title">Vault Factory Admin</div>
+        <div class="subtitle">Infinite Trading · Velodrome auto-compounders · Optimism</div>
+      </div>
+    </div>
+    <div class="wallet">
+      <label class="actas">Act as
+        <select id="actAs">
+          <option value="dao">DAO Safe</option>
+          <option value="wallet">Connected wallet</option>
+        </select>
+      </label>
+      <span id="account" class="pill muted">Not connected</span>
+      <button id="connect" class="btn primary">Connect wallet</button>
+    </div>
+  </header>
+
+  <nav class="tabs" id="tabs">
+    <button data-tab="overview" class="active">Overview</button>
+    <button data-tab="vaults">Vaults</button>
+    <button data-tab="upgrades">Upgrades</button>
+    <button data-tab="roles">Roles</button>
+    <button data-tab="create">Create vault</button>
+    <button data-tab="batch">Batch <span id="batchCount" class="count">0</span></button>
+  </nav>
+
+  <main>
+    <div id="notice" class="notice hidden"></div>
+
+    <section id="tab-overview" class="tab active">
+      <div class="grid" id="overviewCards"><div class="card loading">Loading on-chain state…</div></div>
+      <div class="card">
+        <h3>Source code &amp; audits</h3>
+        <ul class="links" id="codeLinks"></ul>
+      </div>
+      <div class="card">
+        <h3>How execution works</h3>
+        <ol class="help">
+          <li><b>Act as</b> chooses the address used to simulate every call. Admin actions belong to the <b>DAO Safe</b>.</li>
+          <li><b>Simulate</b> runs the call read-only on Optimism and decodes any revert. Nothing is signed.</li>
+          <li><b>Send</b> asks your wallet to sign. With Rabby, select the Safe account to create a Safe proposal for the signers.</li>
+          <li><b>Add to batch</b> queues it. The Batch tab exports a Safe Transaction Builder file so several actions execute atomically.</li>
+        </ol>
+      </div>
+    </section>
+
+    <section id="tab-vaults" class="tab">
+      <div class="card">
+        <div class="row between">
+          <h3>Vaults</h3>
+          <button id="refresh" class="btn">Refresh</button>
+        </div>
+        <div class="table-wrap"><table id="vaultTable"></table></div>
+      </div>
+      <div class="card hidden" id="vaultPanel"></div>
+      <div class="card">
+        <h3>Harvest all active vaults (one Multicall3 tx, permissionless)</h3>
+        <p class="muted">Calls <code>harvest(callFeeRecipient)</code> on every active vault with <code>allowFailure</code> so one bad vault cannot block the rest.</p>
+        <div class="form">
+          <label>Call-fee recipient <input id="harvestRecipient" placeholder="0x…"></label>
+        </div>
+        <button id="buildHarvestAll" class="btn">Build</button>
+        <div id="harvestAllTx"></div>
+      </div>
+    </section>
+
+    <section id="tab-upgrades" class="tab">
+      <div class="card">
+        <h3>Vault implementation (all vaults via beacon)</h3>
+        <p class="muted">Every vault is a <code>BeaconProxy</code>. <code>factory.upgradeBeacon(newImpl)</code> switches all of them in one transaction. Requires <code>DEFAULT_ADMIN_ROLE</code>.</p>
+        <div id="beaconInfo"></div>
+        <div class="form">
+          <label>New implementation <input id="newVaultImpl" placeholder="0x…"></label>
+          <label>Known versions <select id="knownImpls"><option value="">—</option></select></label>
+        </div>
+        <button id="inspectVaultImpl" class="btn">Inspect</button>
+        <div id="vaultImplInspect"></div>
+        <div id="vaultImplTx"></div>
+      </div>
+      <div class="card">
+        <h3>Factory implementation (UUPS)</h3>
+        <p class="muted">Replaces the factory logic itself through <code>upgradeToAndCall(newImpl, 0x)</code>. Storage layout must stay compatible. Requires <code>DEFAULT_ADMIN_ROLE</code>.</p>
+        <div id="factoryImplInfo"></div>
+        <div class="form">
+          <label>New factory implementation <input id="newFactoryImpl" placeholder="0x…"></label>
+        </div>
+        <button id="inspectFactoryImpl" class="btn">Inspect</button>
+        <div id="factoryImplInspect"></div>
+        <div id="factoryImplTx"></div>
+      </div>
+    </section>
+
+    <section id="tab-roles" class="tab">
+      <div class="card">
+        <h3>Factory roles</h3>
+        <div id="rolesTable"></div>
+      </div>
+      <div class="card">
+        <h3>Grant role</h3>
+        <div class="form">
+          <label>Role <select id="grantRoleSel"></select></label>
+          <label>Account <input id="grantRoleAccount" placeholder="0x…"></label>
+        </div>
+        <button id="buildGrant" class="btn">Build</button>
+        <div id="grantTx"></div>
+      </div>
+    </section>
+
+    <section id="tab-create" class="tab">
+      <div class="card">
+        <h3>Deploy a new auto-compounder vault</h3>
+        <p class="muted"><code>factory.createVault(...)</code> deploys a BeaconProxy on the current implementation. Requires <code>VAULT_CREATOR_ROLE</code>. The new vault is owned by the factory; settings then go through the factory (needs <code>SETTINGS_ADMIN_ROLE</code>) or ownership can be moved to the DAO.</p>
+        <div class="form two">
+          <label>Velodrome pool (want) <input id="cvWant" placeholder="0x…"></label>
+          <label>Gauge <input id="cvGauge" placeholder="auto from Voter"></label>
+          <label>Router <input id="cvRouter"></label>
+          <label>Infinite fee recipient <input id="cvFeeRecipient"></label>
+          <label>Name <input id="cvName" placeholder="Infinite ITP-XXX (ITP Rewards)"></label>
+          <label>Symbol <input id="cvSymbol" placeholder="iITP-XXX"></label>
+        </div>
+        <div class="row">
+          <button id="cvLookup" class="btn">Look up pool &amp; gauge</button>
+          <label class="inline">Copy routes from
+            <select id="cvCopyFrom"><option value="">—</option></select>
+          </label>
+        </div>
+        <div id="cvPoolInfo"></div>
+        <p class="muted">Routes: JSON arrays of <code>[from, to, stable, factory]</code> hops. Output→native must start at the reward token (VELO) and end at ITP. A route may be empty when the reward token is itself a pair token.</p>
+        <div class="form">
+          <label>outputToNativeRoute <textarea id="cvRouteNative" rows="3"></textarea></label>
+          <label>outputToLp0Route <textarea id="cvRouteLp0" rows="3"></textarea></label>
+          <label>outputToLp1Route <textarea id="cvRouteLp1" rows="3"></textarea></label>
+        </div>
+        <button id="buildCreate" class="btn primary">Validate &amp; build</button>
+        <div id="createTx"></div>
+      </div>
+    </section>
+
+    <section id="tab-batch" class="tab">
+      <div class="card">
+        <div class="row between">
+          <h3>Batch</h3>
+          <div class="row">
+            <button id="batchExport" class="btn primary">Download Safe Transaction Builder JSON</button>
+            <button id="batchSend" class="btn">Send one by one with wallet</button>
+            <button id="batchClear" class="btn danger">Clear</button>
+          </div>
+        </div>
+        <p class="muted">In the Safe app: Apps → Transaction Builder → drag the JSON in → Create batch → Send. Signers review the same calls listed here.</p>
+        <div id="batchList"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    Static page · reads from public RPC · signing only through your wallet · <span id="footerLinks"></span>
+  </footer>
+</body>
+</html>

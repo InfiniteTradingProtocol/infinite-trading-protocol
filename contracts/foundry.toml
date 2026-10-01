@@ -21,6 +21,13 @@
   fuzz = { runs = 10_000 }
   verbosity = 4
 
+# InfiniteVaultStrategy (Velodrome vaults): must fit EIP-170 and match the Cancun opcodes of the live implementation.
+[profile.velodrome]
+  evm_version = "cancun"
+  optimizer_runs = 200
+  out = "out-velodrome"
+  cache_path = "cache-velodrome"
+
 [etherscan]
   optimism = { key = "${API_KEY_OPTIMISTIC_ETHERSCAN}" }
   base = { key = "${BASE_ETHERSCAN_API_KEY}", url = "https://api.etherscan.io/v2/api?chainid=8453" }

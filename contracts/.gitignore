@@ -1,8 +1,10 @@
 # directories
 cache
+cache-velodrome
 coverage
 node_modules
 out
+out-velodrome
 
 # files
 *.env
