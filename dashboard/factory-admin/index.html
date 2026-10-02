@@ -1,6 +1,6 @@
 <!doctype html>
 <!--
-  ITP Vault Factory admin dashboard (static, no build step, no secrets).
+  Infinite Trading Administration Dashboard (static, no build step, no secrets).
   Run locally so wallet extensions can inject:
     cd dashboard/factory-admin && python3 -m http.server 8765 --bind 127.0.0.1
   then open http://127.0.0.1:8765/
@@ -9,21 +9,21 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>ITP · Vault Factory Admin</title>
-  <link rel="stylesheet" href="style.css?v=3">
+  <title>Infinite Trading Administration Dashboard</title>
+  <link rel="stylesheet" href="style.css?v=4">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.4/ethers.umd.min.js"
           integrity="sha384-6Zl0Pc8zjSz8KvmNeXRvUQgY4ryFb+BwDvKCmLYcBME0joAaru491tQgi9B7zsMM"
           crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-  <script src="config.js?v=4"></script>
-  <script src="app.js?v=4" defer></script>
+  <script src="config.js?v=5"></script>
+  <script src="app.js?v=5" defer></script>
 </head>
 <body>
   <header class="topbar">
     <div class="brand">
       <span class="logo">∞</span>
       <div>
-        <div class="title">Vault Factory Admin</div>
-        <div class="subtitle">Infinite Trading · Velodrome auto-compounders · Optimism</div>
+        <div class="title">Infinite Trading Administration Dashboard</div>
+        <div class="subtitle">Protocol operations · Ethereum · Optimism · Base</div>
       </div>
     </div>
     <div class="wallet">
@@ -40,10 +40,13 @@
 
   <nav class="tabs" id="tabs">
     <button data-tab="overview" class="active">Overview</button>
-    <button data-tab="vaults">Vaults</button>
+    <button data-tab="vaults">Velodrome</button>
+    <button data-tab="staking">ITP Staking</button>
+    <button data-tab="v3">Uniswap V3</button>
+    <button data-tab="assets">Assets</button>
     <button data-tab="upgrades">Upgrades</button>
     <button data-tab="roles">Roles</button>
-    <button data-tab="create">Create vault</button>
+    <button data-tab="create">Create Velodrome vault</button>
     <button data-tab="batch">Batch <span id="batchCount" class="count">0</span></button>
   </nav>
 
@@ -60,7 +63,7 @@
         <h3>How execution works</h3>
         <ol class="help">
           <li><b>Act as</b> chooses the address used to simulate every call. Admin actions belong to the <b>DAO Safe</b>.</li>
-          <li><b>Simulate</b> runs the call read-only on Optimism and decodes any revert. Nothing is signed.</li>
+          <li><b>Simulate</b> runs the call read-only on the target network and decodes any revert. Nothing is signed.</li>
           <li><b>Send</b> asks your wallet to sign. With Rabby, select the Safe account to create a Safe proposal for the signers.</li>
           <li><b>Add to batch</b> queues it. The Batch tab exports a Safe Transaction Builder file so several actions execute atomically.</li>
         </ol>
@@ -90,6 +93,77 @@
         <p class="muted">Scans every vault for ITP, the paired token and VELO left idle in the contract, and builds one <code>inCaseTokensGetStuck(token)</code> call per non-zero balance. Empty balances are skipped. LP (<code>want</code>) can never be withdrawn this way.</p>
         <button id="scanRescue" class="btn">Scan vaults</button>
         <div id="rescueResult"></div>
+      </div>
+    </section>
+
+    <section id="tab-staking" class="tab">
+      <div class="card">
+        <div class="row between">
+          <div>
+            <h3>ITP Staking V1</h3>
+            <div class="muted">Optimism · <span id="stakingAddress"></span></div>
+          </div>
+          <button id="refreshStaking" class="btn">Refresh</button>
+        </div>
+        <div id="stakingSummary" class="grid"></div>
+      </div>
+      <div class="card">
+        <h3>Reward and penalty operations</h3>
+        <p class="muted">Operations require the staking contract owner. Simulate each call before sending or adding it to the network-specific Safe batch.</p>
+        <div class="form two">
+          <label>Reward amount <input id="stakingRewardAmount" inputmode="decimal" placeholder="Token units"></label>
+          <label>Penalty amount <input id="stakingPenaltyAmount" inputmode="decimal" placeholder="Token units"></label>
+        </div>
+        <div class="row">
+          <button id="buildStakingDeposit" class="btn">Build reward deposit</button>
+          <button id="buildStakingWithdrawRewards" class="btn">Build reward withdrawal</button>
+          <button id="buildStakingWithdrawPenalty" class="btn">Build penalty withdrawal</button>
+          <button id="buildStakingBurnPenalty" class="btn">Build penalty burn</button>
+          <button id="buildStakingConvertPenalty" class="btn">Build convert penalty to rewards</button>
+        </div>
+        <div id="stakingTx"></div>
+      </div>
+    </section>
+
+    <section id="tab-v3" class="tab">
+      <div class="card">
+        <div class="row between">
+          <div>
+            <h3>Uniswap V3 auto-compounders</h3>
+            <div class="muted">Base · proxy state, liquidity, pending fees, keepers, and owner operations</div>
+          </div>
+          <button id="refreshV3" class="btn">Refresh</button>
+        </div>
+        <div class="table-wrap"><table id="v3Table"></table></div>
+      </div>
+      <div id="v3Panel" class="card hidden"></div>
+      <div class="card">
+        <div class="row between">
+          <div>
+            <h3>Scan compounder balances</h3>
+            <p class="muted">Find idle token balances held by the registered V3 vaults and queue owner recovery calls.</p>
+          </div>
+          <button id="scanV3" class="btn">Scan</button>
+        </div>
+        <div id="v3ScanResult"></div>
+      </div>
+    </section>
+
+    <section id="tab-assets" class="tab">
+      <div class="card">
+        <div class="row between">
+          <div>
+            <h3>Protocol assets</h3>
+            <div class="muted">Supply and protocol-held balances across configured networks</div>
+          </div>
+          <button id="refreshAssets" class="btn">Refresh</button>
+        </div>
+        <div id="assetsGrid" class="grid"></div>
+      </div>
+      <div class="card">
+        <h3>StSATO</h3>
+        <p class="muted">Ethereum · read-only monitor. The launch function renounces ownership, so this contract has no post-launch admin controls.</p>
+        <div id="stsatoSummary"></div>
       </div>
     </section>
 
@@ -170,6 +244,13 @@
         <div class="row between">
           <h3>Batch</h3>
           <div class="row">
+            <label class="inline">Network
+              <select id="batchNetwork">
+                <option value="10">Optimism</option>
+                <option value="8453">Base</option>
+                <option value="1">Ethereum</option>
+              </select>
+            </label>
             <button id="batchExport" class="btn primary">Download Safe Transaction Builder JSON</button>
             <button id="batchSend" class="btn">Send one by one with wallet</button>
             <button id="batchClear" class="btn danger">Clear</button>

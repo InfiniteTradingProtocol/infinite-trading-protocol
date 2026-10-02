@@ -46,9 +46,9 @@ h3 { margin: 0 0 10px; font-size: 15px; }
 .wallet { display: flex; gap: 10px; align-items: center; }
 .actas { color: var(--muted); font-size: 12px; display: flex; gap: 6px; align-items: center; }
 
-.tabs { display: flex; gap: 4px; padding: 10px 28px 0; border-bottom: 1px solid var(--border); }
+.tabs { display: flex; gap: 4px; padding: 10px 28px 0; border-bottom: 1px solid var(--border); overflow-x: auto; white-space: nowrap; }
 .tabs button {
-  background: none; border: none; color: var(--muted); padding: 10px 14px; cursor: pointer;
+  flex: 0 0 auto; background: none; border: none; color: var(--muted); padding: 10px 14px; cursor: pointer;
   border-bottom: 2px solid transparent; font-size: 14px;
 }
 .tabs button.active { color: var(--text); border-bottom-color: var(--accent); }
@@ -143,4 +143,7 @@ footer { text-align: center; color: var(--muted); font-size: 12px; padding: 20px
   .form.two { grid-template-columns: 1fr; }
   .kv { grid-template-columns: 1fr; }
   .topbar { flex-direction: column; align-items: flex-start; }
+  .tabs { padding-left: 12px; padding-right: 12px; }
+  main { padding-left: 12px; padding-right: 12px; }
+  .wallet { width: 100%; flex-wrap: wrap; }
 }
