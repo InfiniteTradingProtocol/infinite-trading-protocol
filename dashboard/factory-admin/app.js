@@ -103,10 +103,69 @@
   // Velodrome factories for non-vault pools are labelled in routes.
   const VOTER_ABI = ["function gauges(address pool) view returns (address)", "function isAlive(address gauge) view returns (bool)"];
   const PAIR_ABI = ["function token0() view returns (address)", "function token1() view returns (address)", "function stable() view returns (bool)"];
-  const ERC20_ABI = ["function symbol() view returns (string)", "function decimals() view returns (uint8)", "function balanceOf(address) view returns (uint256)"];
+  const ERC20_ABI = [
+    "function name() view returns (string)",
+    "function symbol() view returns (string)",
+    "function decimals() view returns (uint8)",
+    "function totalSupply() view returns (uint256)",
+    "function balanceOf(address) view returns (uint256)",
+    "function allowance(address,address) view returns (uint256)",
+    "function approve(address,uint256) returns (bool)",
+  ];
+  const STAKING_ABI = [
+    "function owner() view returns (address)",
+    "function totalStaked() view returns (uint256)",
+    "function totalRewards() view returns (uint256)",
+    "function totalRewardsLeft() view returns (uint256)",
+    "function totalPenalty() view returns (uint256)",
+    "function totalPenaltyBurned() view returns (uint256)",
+    "function penaltyRateBps() view returns (uint256)",
+    "function rewardsRatePerLockMultiplierBps(uint256) view returns (uint256)",
+    "function depositRewards(uint256)",
+    "function withdrawRewards(uint256)",
+    "function withdrawPenalty(uint256)",
+    "function burnPenalty(uint256)",
+    "function convertPenaltyIntoRewards(uint256)",
+  ];
+  const V3_ABI = [
+    "function owner() view returns (address)",
+    "function dao() view returns (address)",
+    "function token0() view returns (address)",
+    "function token1() view returns (address)",
+    "function pool() view returns (address)",
+    "function poolFee() view returns (uint24)",
+    "function tokenId() view returns (uint256)",
+    "function totalShares() view returns (uint256)",
+    "function totalLiquidity() view returns (uint128)",
+    "function pendingFees() view returns (uint128,uint128)",
+    "function maxSlippageBps() view returns (uint16)",
+    "function twapPeriod() view returns (uint32)",
+    "function isKeeper(address) view returns (bool)",
+    "function userShares(address) view returns (uint256)",
+    "function compound()",
+    "function setDao(address)",
+    "function addKeeper(address)",
+    "function removeKeeper(address)",
+    "function setTwapPeriod(uint32)",
+    "function setPool(address,uint24)",
+    "function setMaxSlippage(uint16)",
+    "function transferOwnership(address)",
+    "function rescueTokens(address,uint256)",
+    "function upgradeToAndCall(address,bytes)",
+  ];
+  const STSATO_ABI = [
+    "function owner() view returns (address)",
+    "function start() view returns (bool)",
+    "function totalMinted() view returns (uint256)",
+    "function totalFeesBurned() view returns (uint256)",
+    "function lastPrice() view returns (uint256)",
+    "function getBacking() view returns (uint256)",
+  ];
 
   const state = {
     read: null,
+    providers: {},
+    networkErrors: {},
     wallet: null,
     account: null,
     actAs: "dao",
@@ -118,6 +177,11 @@
     roles: [],
     safe: null,
     vaults: [],
+    staking: null,
+    v3Vaults: [],
+    selectedV3: null,
+    assets: [],
+    stsato: null,
     selected: null,
     batch: loadBatch(),
   };
@@ -146,15 +210,21 @@
   const ext = (href, text) => h("a", { href, target: "_blank", rel: "noopener noreferrer" }, text);
   const addrLink = (a, text) => ext(`${CFG.explorer}/address/${a}`, text || labelFor(a));
   const badge = (cls, text) => h("span", { class: `badge ${cls}` }, text);
+  const networkFor = (chainId = CFG.chainId) => CFG.networks[chainId];
+  const providerFor = (chainId = CFG.chainId) => state.providers[chainId];
 
   function labelFor(a) {
     if (!a) return "";
     if (eq(a, CFG.factory)) return "Factory";
+    if (eq(a, CFG.staking)) return "ITP Staking V1";
+    if (eq(a, CFG.stsato)) return "StSATO";
     if (eq(a, CFG.dao)) return "DAO Safe";
     if (eq(a, state.beacon)) return "Beacon";
     if (eq(a, CFG.multicall3)) return "Multicall3";
     const v = state.vaults.find((x) => eq(x.address, a));
     if (v) return v.name;
+    const v3 = state.v3Vaults.find((x) => eq(x.address, a));
+    if (v3) return v3.name;
     const k = CFG.knownVaultImplementations.find((x) => eq(x.address, a));
     if (k) return `impl ${k.label}`;
     if (eq(a, state.account)) return `you (${short(a)})`;
@@ -198,17 +268,21 @@
   // ---------- providers / wallet ----------
 
   async function initRead() {
-    for (const url of CFG.rpcUrls) {
-      try {
-        const p = new ethers.JsonRpcProvider(url, CFG.chainId, { staticNetwork: true });
-        await p.getBlockNumber();
-        state.read = p;
-        return;
-      } catch {
-        /* try next RPC */
+    await Promise.all(Object.entries(CFG.networks).map(async ([id, network]) => {
+      for (const url of network.rpcUrls) {
+        try {
+          const provider = new ethers.JsonRpcProvider(url, network.chainId, { staticNetwork: true });
+          await provider.getBlockNumber();
+          state.providers[id] = provider;
+          if (Number(id) === CFG.chainId) state.read = provider;
+          return;
+        } catch {
+          /* try the next RPC for this network */
+        }
       }
-    }
-    throw new Error("No public Optimism RPC reachable.");
+      state.networkErrors[id] = `No public ${network.chainName} RPC reachable.`;
+    }));
+    if (!state.read) throw new Error(state.networkErrors[CFG.chainId] || "No public Optimism RPC reachable.");
   }
 
   async function connect() {
@@ -223,10 +297,12 @@
     renderAccount();
   }
 
-  async function ensureChain() {
+  async function ensureChain(chainId = CFG.chainId) {
     const id = await window.ethereum.request({ method: "eth_chainId" });
-    if (id !== CFG.chainIdHex) {
-      await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: CFG.chainIdHex }] });
+    const network = networkFor(chainId);
+    if (!network) throw new Error(`Unsupported chain ID ${chainId}.`);
+    if (id !== network.chainIdHex) {
+      await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: network.chainIdHex }] });
     }
   }
 
@@ -269,7 +345,10 @@
   async function simulate(tx, from = executor()) {
     if (!from) return { ok: false, reason: "Connect a wallet or set “Act as” to DAO Safe." };
     try {
-      await state.read.call({ from, to: tx.to, data: tx.data, value: BigInt(tx.value || 0) });
+      const chainId = Number(tx.chainId || CFG.chainId);
+      const provider = providerFor(chainId);
+      if (!provider) return { ok: false, reason: `${networkFor(chainId)?.chainName || `Chain ${chainId}`} RPC is unavailable.` };
+      await provider.call({ from, to: tx.to, data: tx.data, value: BigInt(tx.value || 0) });
       return { ok: true };
     } catch (e) {
       return { ok: false, reason: decodeError(e) };
@@ -278,7 +357,8 @@
 
   async function sendTx(tx) {
     if (!state.wallet) await connect();
-    await ensureChain();
+    const chainId = Number(tx.chainId || CFG.chainId);
+    await ensureChain(chainId);
     const signer = await state.wallet.getSigner();
     const from = await signer.getAddress();
     if (state.actAs === "dao" && !eq(from, CFG.dao)) {
@@ -301,7 +381,7 @@
       "div",
       { class: "tx" },
       h("div", { class: "tx-title" }, tx.label),
-      h("div", { class: "tx-meta" }, "to ", addrLink(tx.to), ` · value 0 · must be sent by: ${tx.sender || "anyone"}`),
+      h("div", { class: "tx-meta" }, "to ", ext(`${networkFor(Number(tx.chainId || CFG.chainId))?.explorer || CFG.explorer}/address/${tx.to}`, tx.to), ` · ${networkFor(Number(tx.chainId || CFG.chainId))?.chainName || "Optimism"} · value 0 · must be sent by: ${tx.sender || "anyone"}`),
       tx.warning ? h("div", { class: "result warn" }, `⚠ ${tx.warning}`) : null,
       h("details", {}, h("summary", {}, "calldata"), h("pre", {}, tx.data)),
       h(
@@ -367,7 +447,7 @@
   }
 
   function addToBatch(tx) {
-    state.batch.push({ label: tx.label, to: tx.to, data: tx.data, value: String(tx.value || 0), sender: tx.sender || "" });
+    state.batch.push({ label: tx.label, to: tx.to, data: tx.data, value: String(tx.value || 0), sender: tx.sender || "", chainId: Number(tx.chainId || CFG.chainId) });
     saveBatch();
   }
 
@@ -406,22 +486,24 @@
   }
 
   function exportSafeBatch() {
-    if (!state.batch.length) return;
+    const chainId = Number($("batchNetwork").value || CFG.chainId);
+    const transactions = state.batch.filter((t) => Number(t.chainId || CFG.chainId) === chainId);
+    if (!transactions.length) return;
     const payload = {
       version: "1.0",
-      chainId: String(CFG.chainId),
+      chainId: String(chainId),
       createdAt: Date.now(),
       meta: {
-        name: `ITP factory admin ${new Date().toISOString().slice(0, 10)}`,
-        description: state.batch.map((t) => t.label).join(" | ").slice(0, 500),
+        name: `Infinite Trading admin ${new Date().toISOString().slice(0, 10)}`,
+        description: transactions.map((t) => t.label).join(" | ").slice(0, 500),
         txBuilderVersion: "1.16.5",
         createdFromSafeAddress: CFG.dao,
         createdFromOwnerAddress: "",
       },
-      transactions: state.batch.map((t) => ({ to: t.to, value: t.value || "0", data: t.data, contractMethod: null, contractInputsValues: null })),
+      transactions: transactions.map((t) => ({ to: t.to, value: t.value || "0", data: t.data, contractMethod: null, contractInputsValues: null })),
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-    const a = h("a", { href: URL.createObjectURL(blob), download: `itp-factory-batch-${Date.now()}.json` });
+    const a = h("a", { href: URL.createObjectURL(blob), download: `itp-admin-${networkFor(chainId)?.chainName.toLowerCase() || chainId}-batch-${Date.now()}.json` });
     document.body.append(a);
     a.click();
     a.remove();
@@ -505,6 +587,279 @@
     return { address, name, owner, want, gauge, output, router, tvl, supply, paused, hod, last, rewards, wfee, slip, feeRec, fc, active, alive };
   }
 
+  // ---------- staking, Uniswap V3, and asset monitoring ----------
+
+  async function loadStaking() {
+    const provider = providerFor(10);
+    if (!provider) throw new Error(state.networkErrors[10] || "Optimism RPC unavailable.");
+    const staking = new ethers.Contract(CFG.staking, STAKING_ABI, provider);
+    const token = new ethers.Contract(CFG.tokens.itpOptimism, ERC20_ABI, provider);
+    const getters = ["owner", "totalStaked", "totalRewards", "totalRewardsLeft", "totalPenalty", "totalPenaltyBurned", "penaltyRateBps"];
+    const values = await Promise.all(getters.map((name) => safeCall(staking[name](), null)));
+    const [tokenBalance, reward1, reward2, reward3, reward4] = await Promise.all([
+      safeCall(token.balanceOf(CFG.staking), null),
+      safeCall(staking.rewardsRatePerLockMultiplierBps(1), null),
+      safeCall(staking.rewardsRatePerLockMultiplierBps(2), null),
+      safeCall(staking.rewardsRatePerLockMultiplierBps(3), null),
+      safeCall(staking.rewardsRatePerLockMultiplierBps(4), null),
+    ]);
+    state.staking = { owner: values[0], totalStaked: values[1], totalRewards: values[2], totalRewardsLeft: values[3], totalPenalty: values[4], totalPenaltyBurned: values[5], penaltyRateBps: values[6], tokenBalance, rewardRates: [reward1, reward2, reward3, reward4] };
+    renderStaking();
+  }
+
+  function renderStaking() {
+    $("stakingAddress").replaceChildren(addrLink(CFG.staking, CFG.staking));
+    if (!state.staking) return;
+    const s = state.staking;
+    const value = (x, decimals = 18) => x == null ? "Unavailable" : fmt(x, decimals, 4);
+    const cards = [
+      ["Owner", s.owner ? addrLink(s.owner) : "Unavailable"],
+      ["Total staked", `${value(s.totalStaked)} ITP`],
+      ["Reward inventory", `${value(s.tokenBalance)} ITP`],
+      ["Rewards allocated", `${value(s.totalRewards)} ITP`],
+      ["Rewards remaining", `${value(s.totalRewardsLeft)} ITP`],
+      ["Penalty balance", `${value(s.totalPenalty)} ITP`],
+      ["Penalty burned", `${value(s.totalPenaltyBurned)} ITP`],
+      ["Penalty rate", s.penaltyRateBps == null ? "Unavailable" : `${(Number(s.penaltyRateBps) / 100).toFixed(2)}%`],
+      ["Reward rates (1–4 years)", s.rewardRates.map((x) => x == null ? "–" : `${(Number(x) / 100).toFixed(2)}%`).join(" · ")],
+    ];
+    $("stakingSummary").replaceChildren(...cards.map(([label, text]) => h("div", { class: "card" }, h("div", { class: "stat-label" }, label), h("div", { class: "stat-value" }, text))));
+  }
+
+  function stakingTx(method, amount, label, opts = {}) {
+    const stakingIface = new ethers.Interface(STAKING_ABI);
+    return { ...opts, label: `Staking V1: ${label}`, to: CFG.staking, data: stakingIface.encodeFunctionData(method, [amount]), sender: `staking owner (${state.staking?.owner ? labelFor(state.staking.owner) : "owner"})`, chainId: 10 };
+  }
+
+  function buildStakingOperation(method, amountId, label) {
+    const amount = ethers.parseUnits(($(`${amountId}`).value || "0").trim(), 18);
+    if (amount <= 0n) throw new Error("Amount must be greater than zero.");
+    return stakingTx(method, amount, label);
+  }
+
+  function buildStakingDeposit() {
+    const amount = ethers.parseUnits(($("stakingRewardAmount").value || "0").trim(), 18);
+    if (amount <= 0n) throw new Error("Amount must be greater than zero.");
+    const token = new ethers.Interface(ERC20_ABI);
+    return [
+      { label: "Staking V1: reset ITP allowance", to: CFG.tokens.itpOptimism, data: token.encodeFunctionData("approve", [CFG.staking, 0n]), sender: "ITP token holder", chainId: 10 },
+      { label: "Staking V1: approve ITP rewards", to: CFG.tokens.itpOptimism, data: token.encodeFunctionData("approve", [CFG.staking, amount]), sender: "ITP token holder", chainId: 10 },
+      stakingTx("depositRewards", amount, `deposit ${fmt(amount)} ITP rewards`, { sender: "anyone with ITP" }),
+    ];
+  }
+
+  async function loadV3Vault(def) {
+    const provider = providerFor(def.chainId);
+    if (!provider) return { ...def, error: state.networkErrors[def.chainId] || "Base RPC unavailable." };
+    const code = await provider.getCode(def.address);
+    if (code === "0x") return { ...def, available: false };
+    const vault = new ethers.Contract(def.address, V3_ABI, provider);
+    const calls = ["owner", "dao", "token0", "token1", "pool", "poolFee", "tokenId", "totalShares", "totalLiquidity", "pendingFees", "maxSlippageBps", "twapPeriod"];
+    const values = await Promise.all(calls.map((name) => safeCall(vault[name](), null)));
+    const providerAddress = [CFG.dao, "0xE6C312d661bE5e3eC022e2F18e084713A434A340", "0x233EC2735d58698eFC4d5f24A521AA251252f0C0"];
+    const keepers = await Promise.all(providerAddress.map(async (address) => (await safeCall(vault.isKeeper(address), false)) ? address : null));
+    const implementation = await safeCall(provider.getStorage(def.address, IMPL_SLOT), null);
+    const [symbol0, symbol1] = await Promise.all([values[2], values[3]].map(async (address, i) => {
+      if (!address) return i === 0 ? "token0" : "token1";
+      return safeCall(new ethers.Contract(address, ERC20_ABI, provider).symbol(), short(address));
+    }));
+    return {
+      ...def,
+      available: true,
+      owner: values[0], dao: values[1], token0: values[2] || def.token0, token1: values[3] || def.token1,
+      pool: values[4], poolFee: values[5], tokenId: values[6], totalShares: values[7], totalLiquidity: values[8],
+      pendingFees: values[9], maxSlippageBps: values[10], twapPeriod: values[11], keepers: keepers.filter(Boolean),
+      implementation: implementation && implementation !== `0x${"0".repeat(64)}` ? ethers.getAddress(`0x${implementation.slice(-40)}`) : null,
+      symbols: [symbol0, symbol1],
+    };
+  }
+
+  async function loadV3() {
+    state.v3Vaults = await Promise.all(CFG.v3Compounders.map(loadV3Vault));
+    renderV3();
+  }
+
+  function v3Tx(vault, method, args, label, opts = {}) {
+    return { ...opts, label: `${vault.name}: ${label}`, to: vault.address, data: new ethers.Interface(V3_ABI).encodeFunctionData(method, args), sender: `owner (${vault.owner ? labelFor(vault.owner) : "unknown"})`, chainId: vault.chainId };
+  }
+
+  function renderV3() {
+    const headers = ["Vault", "Owner", "Position", "Shares", "Liquidity", "Pending fees", "Status"];
+    const rows = state.v3Vaults.map((v) => h("tr", {
+      class: `clickable ${state.selectedV3 === v.address ? "selected" : ""}`,
+      onclick: () => selectV3Vault(v.address),
+    },
+      h("td", {}, h("div", {}, v.name), h("div", { class: "muted mono" }, short(v.address))),
+      h("td", {}, v.owner ? addrLink(v.owner, labelFor(v.owner)) : "–"),
+      h("td", {}, v.tokenId == null ? "–" : String(v.tokenId)),
+      h("td", {}, v.totalShares == null ? "–" : fmt(v.totalShares)),
+      h("td", {}, v.totalLiquidity == null ? "–" : String(v.totalLiquidity)),
+      h("td", {}, v.pendingFees ? `${fmt(v.pendingFees[0], 18, 6)} / ${fmt(v.pendingFees[1], 18, 6)} ${v.symbols?.join(" / ") || ""}` : "–"),
+      h("td", {}, v.error ? badge("warn", "RPC unavailable") : v.available ? badge("ok", "live") : badge("err", "no code")),
+    ));
+    $("v3Table").replaceChildren(h("thead", {}, h("tr", {}, ...headers.map((x) => h("th", {}, x)))), h("tbody", {}, rows));
+    if (state.selectedV3) selectV3Vault(state.selectedV3);
+  }
+
+  function selectV3Vault(address) {
+    const vault = state.v3Vaults.find((x) => eq(x.address, address));
+    if (!vault) return;
+    state.selectedV3 = address;
+    $("v3Table").querySelectorAll("tbody tr").forEach((row, index) => row.classList.toggle("selected", eq(state.v3Vaults[index]?.address, address)));
+    const panel = $("v3Panel");
+    panel.classList.remove("hidden");
+    if (!vault.available) {
+      panel.replaceChildren(h("h3", {}, vault.name), h("p", { class: "result err" }, vault.error || "No contract code at this address on Base."));
+      return;
+    }
+    const input = (id, value = "", placeholder = "") => h("input", { id, value: value ?? "", placeholder });
+    const slot = () => h("div", {});
+    const controls = {};
+    for (const id of ["compound", "keeper", "keeperRemove", "pool", "poolFee", "slippage", "twap", "dao", "newOwner", "rescueToken", "rescueAmount", "newImpl"]) controls[id] = slot();
+    const action = (title, body, id, button, build) => h("div", { class: "subcard" }, h("h4", {}, title), body, h("button", { class: "btn", onclick: () => showTx(controls[id], build) }, button), controls[id]);
+    const fees = vault.pendingFees ? `${fmt(vault.pendingFees[0], 18, 6)} ${vault.symbols[0]} + ${fmt(vault.pendingFees[1], 18, 6)} ${vault.symbols[1]}` : "Unavailable";
+    panel.replaceChildren(
+      h("div", { class: "row between" }, h("h3", {}, vault.name), h("button", { class: "btn small", onclick: () => panel.classList.add("hidden") }, "Close")),
+      kv([
+        ["Proxy", ext(`${networkFor(vault.chainId).explorer}/address/${vault.address}`, vault.address)],
+        ["Owner / DAO", `${vault.owner ? labelFor(vault.owner) : "unavailable"} / ${vault.dao ? labelFor(vault.dao) : "unavailable"}`],
+        ["Implementation", vault.implementation ? ext(`${networkFor(vault.chainId).explorer}/address/${vault.implementation}`, vault.implementation) : "Unavailable"],
+        ["Pool", vault.pool ? ext(`${networkFor(vault.chainId).explorer}/address/${vault.pool}`, vault.pool) : "Unavailable"],
+        ["Tokens", `${vault.symbols?.[0] || "token0"} / ${vault.symbols?.[1] || "token1"}`],
+        ["Position / fee tier", `${vault.tokenId ?? "–"} / ${vault.poolFee ?? "–"}`],
+        ["Shares / liquidity", `${vault.totalShares == null ? "–" : fmt(vault.totalShares)} / ${vault.totalLiquidity ?? "–"}`],
+        ["Pending fees", fees],
+        ["TWAP / slippage", `${vault.twapPeriod ?? "–"} sec / ${vault.maxSlippageBps == null ? "–" : `${(Number(vault.maxSlippageBps) / 100).toFixed(2)}%`}`],
+        ["Registered keepers", vault.keepers.length ? vault.keepers.map((k) => labelFor(k)).join(", ") : "No configured DAO/known keepers detected"],
+      ]),
+      h("div", { class: "subgrid" },
+        action("Compound", h("p", { class: "muted" }, "Collect and reinvest available fees. The sender must be the owner or an approved keeper."), "compound", "Build compound", () => v3Tx(vault, "compound", [], "compound fees", { sender: "owner or keeper", chainId: vault.chainId })),
+        h("div", { class: "subcard" }, h("h4", {}, "Keeper access"), h("div", { class: "form" }, h("label", {}, "Keeper address", input("keeper", "", "0x…"))),
+          h("div", { class: "row" },
+            h("button", { class: "btn", onclick: () => showTx(controls.keeper, () => v3Tx(vault, "addKeeper", [requireAddress($("keeper").value, "Keeper")], "add keeper")) }, "Build add keeper"),
+            h("button", { class: "btn", onclick: () => showTx(controls.keeperRemove, () => v3Tx(vault, "removeKeeper", [requireAddress($("keeper").value, "Keeper")], "remove keeper")) }, "Build remove keeper")),
+          controls.keeper, controls.keeperRemove),
+        action("Pool and fee tier", h("div", { class: "form two" }, h("label", {}, "Pool", input("pool", vault.pool, "0x…")), h("label", {}, "Fee tier", input("poolFee", vault.poolFee, "e.g. 10000"))), "pool", "Build pool update", () => v3Tx(vault, "setPool", [requireAddress($("pool").value, "Pool"), BigInt($("poolFee").value)], "update pool")),
+        action("TWAP and slippage", h("div", { class: "form two" }, h("label", {}, "TWAP period (seconds)", input("twap", vault.twapPeriod)), h("label", {}, "Max slippage (bps)", input("slippage", vault.maxSlippageBps))), "twap", "Build settings update", () => [
+          v3Tx(vault, "setTwapPeriod", [BigInt($("twap").value)], "update TWAP period"),
+          v3Tx(vault, "setMaxSlippage", [BigInt($("slippage").value)], "update max slippage"),
+        ]),
+        action("DAO and ownership", h("div", { class: "form two" }, h("label", {}, "DAO recipient", input("dao", vault.dao, "0x…")), h("label", {}, "New owner", input("newOwner", "", "0x…"))), "dao", "Build owner updates", () => {
+          const out = [v3Tx(vault, "setDao", [requireAddress($("dao").value, "DAO")], "update DAO")];
+          if ($("newOwner").value.trim()) out.push(v3Tx(vault, "transferOwnership", [requireAddress($("newOwner").value, "New owner")], "transfer ownership", { confirm: "Transfer full owner control of this auto-compounder?" }));
+          return out;
+        }),
+        action("Recover token balance", h("div", { class: "form two" }, h("label", {}, "Token", input("rescueToken", "", "0x…")), h("label", {}, "Raw amount", input("rescueAmount", "", "uint256"))), "rescueToken", "Build recovery", () => v3Tx(vault, "rescueTokens", [requireAddress($("rescueToken").value, "Token"), BigInt($("rescueAmount").value)], "recover token")),
+        action("Upgrade implementation", h("div", { class: "form" }, h("label", {}, "New implementation", input("newImpl", "", "0x…"))), "newImpl", "Build UUPS upgrade", () => v3Tx(vault, "upgradeToAndCall", [requireAddress($("newImpl").value, "Implementation"), "0x"], "upgrade implementation", { warning: "This replaces the vault logic. Confirm storage-layout compatibility before execution.", confirm: `Upgrade ${vault.name} implementation?` })),
+      ),
+    );
+  }
+
+  async function scanV3Balances() {
+    const provider = providerFor(8453);
+    if (!provider) throw new Error(state.networkErrors[8453] || "Base RPC unavailable.");
+    const found = [];
+    await Promise.all(state.v3Vaults.filter((v) => v.available).map(async (vault) => {
+      const tokens = [...new Set([vault.token0, vault.token1].filter(Boolean))];
+      await Promise.all(tokens.map(async (tokenAddress) => {
+        const token = new ethers.Contract(tokenAddress, ERC20_ABI, provider);
+        const [balance, symbol, decimals] = await Promise.all([token.balanceOf(vault.address), safeCall(token.symbol(), short(tokenAddress)), safeCall(token.decimals(), 18)]);
+        if (balance > 0n) found.push({ vault, tokenAddress, balance, symbol, decimals: Number(decimals) });
+      }));
+    }));
+    return found;
+  }
+
+  async function onScanV3() {
+    const box = $("v3ScanResult");
+    box.replaceChildren(h("p", { class: "muted" }, "Scanning Base compounders…"));
+    try {
+      const found = await scanV3Balances();
+      if (!found.length) {
+        box.replaceChildren(h("p", { class: "result ok" }, "No token balances found in the registered V3 compounders."));
+        return;
+      }
+      const table = h("table", {}, h("thead", {}, h("tr", {}, ...["Vault", "Token", "Balance", "Owner"].map((x) => h("th", {}, x)))), h("tbody", {}, found.map((item) => h("tr", {},
+        h("td", {}, item.vault.name),
+        h("td", {}, ext(`${networkFor(8453).explorer}/address/${item.tokenAddress}`, item.symbol)),
+        h("td", {}, fmt(item.balance, item.decimals, 8)),
+        h("td", {}, item.vault.owner ? labelFor(item.vault.owner) : "unknown"),
+      ))));
+      const slot = h("div", {});
+      box.replaceChildren(h("div", { class: "table-wrap" }, table), h("p", { class: "muted" }, "Recovery calls go to each vault owner. Review and simulate the calls before adding them to the Base batch."), h("button", { class: "btn primary", onclick: () => {
+        found.forEach((item) => addToBatch(v3Tx(item.vault, "rescueTokens", [item.tokenAddress, item.balance], `recover ${fmt(item.balance, item.decimals, 6)} ${item.symbol}`)));
+        slot.replaceChildren(h("span", { class: "result ok" }, `Added ${found.length} recovery call(s) to the batch.`));
+      } }, `Add ${found.length} recovery calls to batch`), slot);
+    } catch (e) {
+      box.replaceChildren(h("div", { class: "result err" }, `Scan failed: ${decodeError(e)}`));
+    }
+  }
+
+  async function loadAssets() {
+    const registry = [
+      { name: "ITP", chainId: 10, address: CFG.tokens.itpOptimism, holders: [CFG.staking, CFG.factory] },
+      { name: "ITP", chainId: 8453, address: CFG.tokens.itpBase, holders: CFG.v3Compounders.map((v) => v.address) },
+      { name: "cbEGGS", chainId: 8453, address: CFG.tokens.cbEggsBase, holders: CFG.v3Compounders.map((v) => v.address) },
+      { name: "cbXRP", chainId: 8453, address: CFG.tokens.cbXrpBase, holders: CFG.v3Compounders.map((v) => v.address) },
+      { name: "AERO", chainId: 8453, address: CFG.tokens.aeroBase, holders: CFG.v3Compounders.map((v) => v.address) },
+      { name: "WETH", chainId: 8453, address: CFG.tokens.wethBase, holders: CFG.v3Compounders.map((v) => v.address) },
+      { name: "SATO", chainId: 1, address: CFG.tokens.satoEthereum, holders: [CFG.stsato, CFG.dao] },
+      { name: "stSATO", chainId: 1, address: CFG.tokens.stSatoEthereum, holders: [CFG.dao] },
+    ];
+    state.assets = await Promise.all(registry.map(async (asset) => {
+      const provider = providerFor(asset.chainId);
+      if (!provider) return { ...asset, error: state.networkErrors[asset.chainId] || "RPC unavailable." };
+      const token = new ethers.Contract(asset.address, ERC20_ABI, provider);
+      const [symbol, decimals, totalSupply, balances] = await Promise.all([
+        safeCall(token.symbol(), asset.name),
+        safeCall(token.decimals(), 18),
+        safeCall(token.totalSupply(), null),
+        Promise.all(asset.holders.map(async (holder) => [holder, await safeCall(token.balanceOf(holder), 0n)])),
+      ]);
+      return { ...asset, symbol, decimals: Number(decimals), totalSupply, balances: balances.filter(([, balance]) => balance > 0n) };
+    }));
+    renderAssets();
+    await loadStSato();
+  }
+
+  function renderAssets() {
+    $("assetsGrid").replaceChildren(...state.assets.map((asset) => {
+      const network = networkFor(asset.chainId);
+      const balances = asset.balances?.length ? asset.balances.map(([holder, amount]) => h("div", { class: "row between" }, h("span", {}, labelFor(holder)), h("span", {}, fmt(amount, asset.decimals, 6)))) : [h("div", { class: "muted" }, "No protocol-held balance detected")];
+      return h("div", { class: "card" },
+        h("div", { class: "row between" }, h("h3", {}, `${asset.name} · ${network.chainName}`), ext(`${network.explorer}/address/${asset.address}`, "Explorer")),
+        h("div", { class: "muted mono" }, asset.address),
+        asset.error ? h("div", { class: "result warn" }, asset.error) : null,
+        h("div", { class: "stat-label" }, "Total supply"),
+        h("div", { class: "stat-value" }, asset.totalSupply == null ? "Unavailable" : fmt(asset.totalSupply, asset.decimals, 4)),
+        h("h4", {}, "Known protocol balances"),
+        ...balances,
+      );
+    }));
+  }
+
+  async function loadStSato() {
+    const provider = providerFor(1);
+    if (!provider) {
+      $("stsatoSummary").replaceChildren(h("p", { class: "result warn" }, state.networkErrors[1] || "Ethereum RPC unavailable."));
+      return;
+    }
+    const stSato = new ethers.Contract(CFG.stsato, [...STSATO_ABI, ...ERC20_ABI], provider);
+    const sato = new ethers.Contract(CFG.sato, ERC20_ABI, provider);
+    const [owner, started, supply, backing, minted, burned, price, satoBalance] = await Promise.all([
+      safeCall(stSato.owner(), null), safeCall(stSato.start(), null), safeCall(stSato.totalSupply(), null), safeCall(stSato.getBacking(), null),
+      safeCall(stSato.totalMinted(), null), safeCall(stSato.totalFeesBurned(), null), safeCall(stSato.lastPrice(), null), safeCall(sato.balanceOf(CFG.stsato), null),
+    ]);
+    state.stsato = { owner, started, supply, backing, minted, burned, price, satoBalance };
+    const value = (x, decimals = 18) => x == null ? "Unavailable" : fmt(x, decimals, 6);
+    $("stsatoSummary").replaceChildren(kv([
+      ["Started", started == null ? "Unavailable" : started ? badge("ok", "yes") : badge("warn", "not started")],
+      ["Owner", owner ? addrLink(owner, eq(owner, ethers.ZeroAddress) ? "renounced" : owner) : "Unavailable"],
+      ["stSATO supply", value(supply)], ["SATO backing", value(backing)], ["SATO held by contract", value(satoBalance)],
+      ["Lifetime minted", value(minted)], ["Fees burned", value(burned)], ["Last price", value(price)],
+    ]));
+  }
+
   // ---------- overview ----------
 
   function renderOverview() {
@@ -514,14 +869,18 @@
 
     const card = (label, value, extra) => h("div", { class: "card" }, h("div", { class: "stat-label" }, label), h("div", { class: "stat-value" }, value), extra ? h("div", { class: "muted" }, extra) : null);
 
-    $("overviewCards").replaceChildren(
+    const cards = [
       card("Factory (proxy)", addrLink(CFG.factory, CFG.factory), h("span", {}, "implementation ", addrLink(state.factoryImpl, short(state.factoryImpl)))),
       card("Vault implementation", addrLink(state.beaconImpl, state.beaconImpl), vImplLabel),
       card("Beacon", addrLink(state.beacon, state.beacon), h("span", {}, "owner ", addrLink(state.beaconOwner))),
       card("DAO Safe", addrLink(CFG.dao, CFG.dao), state.safe?.threshold ? `${state.safe.threshold} of ${state.safe.owners.length} signers` : "Safe"),
       card("Vaults", `${state.vaults.filter((v) => v.active).length} active / ${state.vaults.length} total`, deadGauges ? `${deadGauges} with a killed gauge` : "all gauges alive"),
       card("Admins (DEFAULT_ADMIN_ROLE)", h("span", {}, ...admins.flatMap((a, i) => [i ? ", " : "", addrLink(a)])), admins.length ? null : "none"),
-    );
+    ];
+    if (state.staking) cards.push(card("ITP Staking V1", addrLink(CFG.staking, CFG.staking), state.staking.totalStaked == null ? "metrics unavailable" : `${fmt(state.staking.totalStaked)} ITP staked`));
+    if (state.v3Vaults.length) cards.push(card("Uniswap V3 compounders", `${state.v3Vaults.filter((v) => v.available).length} live / ${state.v3Vaults.length} registered`, "Base"));
+    if (state.assets.length) cards.push(card("cbEGGS", addrLink(CFG.tokens.cbEggsBase, "Base token"), "Supply and compounder balances in Assets"));
+    $("overviewCards").replaceChildren(...cards);
 
     const repoFile = (p) => `${CFG.repo}/${p}`;
     $("codeLinks").replaceChildren(
@@ -1065,6 +1424,15 @@
       if (state.vaults.length) renderRoles();
     });
     $("refresh").addEventListener("click", refresh);
+    $("refreshStaking").addEventListener("click", () => loadStaking().catch((e) => $("stakingSummary").replaceChildren(h("p", { class: "result err" }, decodeError(e)))));
+    $("refreshV3").addEventListener("click", () => loadV3().catch((e) => $("v3Table").replaceChildren(h("tbody", {}, h("tr", {}, h("td", { colspan: "7" }, decodeError(e)))))));
+    $("refreshAssets").addEventListener("click", () => loadAssets().catch((e) => $("assetsGrid").replaceChildren(h("p", { class: "result err" }, decodeError(e)))));
+    $("scanV3").addEventListener("click", onScanV3);
+    $("buildStakingDeposit").addEventListener("click", () => showTx("stakingTx", buildStakingDeposit));
+    $("buildStakingWithdrawRewards").addEventListener("click", () => showTx("stakingTx", () => buildStakingOperation("withdrawRewards", "stakingRewardAmount", "withdraw rewards")));
+    $("buildStakingWithdrawPenalty").addEventListener("click", () => showTx("stakingTx", () => buildStakingOperation("withdrawPenalty", "stakingPenaltyAmount", "withdraw penalty")));
+    $("buildStakingBurnPenalty").addEventListener("click", () => showTx("stakingTx", () => buildStakingOperation("burnPenalty", "stakingPenaltyAmount", "burn penalty")));
+    $("buildStakingConvertPenalty").addEventListener("click", () => showTx("stakingTx", () => buildStakingOperation("convertPenaltyIntoRewards", "stakingPenaltyAmount", "convert penalty to rewards")));
     $("buildHarvestAll").addEventListener("click", () => showTx("harvestAllTx", buildHarvestAll));
     $("scanRescue").addEventListener("click", onScanRescue);
     $("knownImpls").addEventListener("change", (e) => {
@@ -1083,6 +1451,7 @@
     $("cvCopyFrom").addEventListener("change", (e) => copyRoutesFrom(e.target.value).catch((err) => notice("err", h("div", {}, err.message))));
     $("buildCreate").addEventListener("click", () => showTx("createTx", buildCreateVault));
     $("batchExport").addEventListener("click", exportSafeBatch);
+    $("batchNetwork").addEventListener("change", renderBatch);
     $("batchSend").addEventListener("click", sendBatch);
     $("batchClear").addEventListener("click", () => {
       if (window.confirm("Clear the batch?")) {
@@ -1107,6 +1476,12 @@
     } catch (e) {
       notice("err", h("div", {}, `Failed to load on-chain state: ${decodeError(e)}`));
     }
+    await Promise.all([
+      loadStaking().catch((e) => $("stakingSummary").replaceChildren(h("p", { class: "result err" }, decodeError(e)))),
+      loadV3().catch((e) => $("v3Table").replaceChildren(h("tbody", {}, h("tr", {}, h("td", { colspan: "7" }, decodeError(e)))))),
+      loadAssets().catch((e) => $("assetsGrid").replaceChildren(h("p", { class: "result err" }, decodeError(e)))),
+    ]);
+    if (state.roles.length) renderOverview();
   }
 
   async function main() {
