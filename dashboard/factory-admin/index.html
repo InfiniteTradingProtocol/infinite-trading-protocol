@@ -10,12 +10,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Infinite Trading Administration Dashboard</title>
-  <link rel="stylesheet" href="style.css?v=4">
+  <link rel="stylesheet" href="style.css?v=5">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.4/ethers.umd.min.js"
           integrity="sha384-6Zl0Pc8zjSz8KvmNeXRvUQgY4ryFb+BwDvKCmLYcBME0joAaru491tQgi9B7zsMM"
           crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <script src="config.js?v=5"></script>
-  <script src="app.js?v=5" defer></script>
+  <script src="app.js?v=6" defer></script>
 </head>
 <body>
   <header class="topbar">
@@ -38,22 +38,29 @@
     </div>
   </header>
 
-  <nav class="tabs" id="tabs">
-    <button data-tab="overview" class="active">Overview</button>
-    <button data-tab="vaults">Velodrome</button>
-    <button data-tab="staking">ITP Staking</button>
-    <button data-tab="v3">Uniswap V3</button>
-    <button data-tab="assets">Assets</button>
-    <button data-tab="upgrades">Upgrades</button>
-    <button data-tab="roles">Roles</button>
-    <button data-tab="create">Create Velodrome vault</button>
-    <button data-tab="batch">Batch <span id="batchCount" class="count">0</span></button>
+  <nav class="modules" id="modules" aria-label="Contract families">
+    <button data-module="velodrome" class="active">Velodrome Auto Compounder</button>
+    <button data-module="uniswap">Uniswap V3 Auto Compounders</button>
+    <button data-module="staking">ITP Staking</button>
+    <button data-module="assets">Assets</button>
+  </nav>
+  <nav class="tabs" id="tabs" aria-label="Velodrome Auto Compounder sections">
+    <button data-module="velodrome" data-tab="overview" class="active">Overview</button>
+    <button data-module="velodrome" data-tab="vaults">Vaults</button>
+    <button data-module="velodrome" data-tab="upgrades">Upgrades</button>
+    <button data-module="velodrome" data-tab="roles">Roles</button>
+    <button data-module="velodrome" data-tab="create">Create vault</button>
+    <button data-module="velodrome" data-tab="batch">Batch <span id="batchCount" class="count">0</span></button>
+    <button data-module="uniswap" data-tab="v3">Vaults</button>
+    <button data-module="uniswap" data-tab="v3-scan">Scans</button>
+    <button data-module="staking" data-tab="staking">Overview &amp; operations</button>
+    <button data-module="assets" data-tab="assets">Token monitor</button>
   </nav>
 
   <main>
     <div id="notice" class="notice hidden"></div>
 
-    <section id="tab-overview" class="tab active">
+    <section id="tab-overview" class="tab active" data-module="velodrome">
       <div class="grid" id="overviewCards"><div class="card loading">Loading on-chain state…</div></div>
       <div class="card">
         <h3>Source code &amp; audits</h3>
@@ -70,7 +77,7 @@
       </div>
     </section>
 
-    <section id="tab-vaults" class="tab">
+    <section id="tab-vaults" class="tab" data-module="velodrome">
       <div class="card">
         <div class="row between">
           <h3>Vaults</h3>
@@ -96,7 +103,7 @@
       </div>
     </section>
 
-    <section id="tab-staking" class="tab">
+    <section id="tab-staking" class="tab" data-module="staking">
       <div class="card">
         <div class="row between">
           <div>
@@ -109,7 +116,7 @@
       </div>
       <div class="card">
         <h3>Reward and penalty operations</h3>
-        <p class="muted">Operations require the staking contract owner. Simulate each call before sending or adding it to the network-specific Safe batch.</p>
+        <p class="muted">Operations require the staking contract owner. Reward deposits queue approval before deposit; the deposit may fail when simulated alone until approval executes. Safe batches preserve this call order.</p>
         <div class="form two">
           <label>Reward amount <input id="stakingRewardAmount" inputmode="decimal" placeholder="Token units"></label>
           <label>Penalty amount <input id="stakingPenaltyAmount" inputmode="decimal" placeholder="Token units"></label>
@@ -125,7 +132,7 @@
       </div>
     </section>
 
-    <section id="tab-v3" class="tab">
+    <section id="tab-v3" class="tab" data-module="uniswap">
       <div class="card">
         <div class="row between">
           <div>
@@ -137,6 +144,9 @@
         <div class="table-wrap"><table id="v3Table"></table></div>
       </div>
       <div id="v3Panel" class="card hidden"></div>
+    </section>
+
+    <section id="tab-v3-scan" class="tab" data-module="uniswap">
       <div class="card">
         <div class="row between">
           <div>
@@ -149,7 +159,7 @@
       </div>
     </section>
 
-    <section id="tab-assets" class="tab">
+    <section id="tab-assets" class="tab" data-module="assets">
       <div class="card">
         <div class="row between">
           <div>
@@ -167,7 +177,7 @@
       </div>
     </section>
 
-    <section id="tab-upgrades" class="tab">
+    <section id="tab-upgrades" class="tab" data-module="velodrome">
       <div class="card">
         <h3>Vault implementation (all vaults via beacon)</h3>
         <p class="muted">Every vault is a <code>BeaconProxy</code>. <code>factory.upgradeBeacon(newImpl)</code> switches all of them in one transaction. Requires <code>DEFAULT_ADMIN_ROLE</code>.</p>
@@ -193,7 +203,7 @@
       </div>
     </section>
 
-    <section id="tab-roles" class="tab">
+    <section id="tab-roles" class="tab" data-module="velodrome">
       <div class="card">
         <h3>Factory roles</h3>
         <div id="rolesTable"></div>
@@ -209,7 +219,7 @@
       </div>
     </section>
 
-    <section id="tab-create" class="tab">
+    <section id="tab-create" class="tab" data-module="velodrome">
       <div class="card">
         <h3>Deploy a new auto-compounder vault</h3>
         <p class="muted"><code>factory.createVault(...)</code> deploys a BeaconProxy on the current implementation. Requires <code>VAULT_CREATOR_ROLE</code>. The new vault is owned by the factory; settings then go through the factory (needs <code>SETTINGS_ADMIN_ROLE</code>) or ownership can be moved to the DAO.</p>
@@ -239,7 +249,7 @@
       </div>
     </section>
 
-    <section id="tab-batch" class="tab">
+    <section id="tab-batch" class="tab" data-module="velodrome">
       <div class="card">
         <div class="row between">
           <h3>Batch</h3>

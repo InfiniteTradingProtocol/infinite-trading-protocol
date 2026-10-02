@@ -46,11 +46,18 @@ h3 { margin: 0 0 10px; font-size: 15px; }
 .wallet { display: flex; gap: 10px; align-items: center; }
 .actas { color: var(--muted); font-size: 12px; display: flex; gap: 6px; align-items: center; }
 
-.tabs { display: flex; gap: 4px; padding: 10px 28px 0; border-bottom: 1px solid var(--border); overflow-x: auto; white-space: nowrap; }
+.modules { display: flex; gap: 6px; padding: 12px 28px 0; border-bottom: 1px solid var(--border); overflow-x: auto; white-space: nowrap; }
+.modules button {
+  flex: 0 0 auto; background: transparent; border: 1px solid transparent; color: var(--muted); padding: 9px 14px;
+  border-radius: 8px 8px 0 0; cursor: pointer; font-size: 14px;
+}
+.modules button.active { color: var(--text); background: var(--panel); border-color: var(--border); border-bottom-color: var(--panel); }
+.tabs { display: flex; gap: 4px; padding: 4px 28px 0; border-bottom: 1px solid var(--border); overflow-x: auto; white-space: nowrap; }
 .tabs button {
   flex: 0 0 auto; background: none; border: none; color: var(--muted); padding: 10px 14px; cursor: pointer;
   border-bottom: 2px solid transparent; font-size: 14px;
 }
+.tabs button[hidden] { display: none; }
 .tabs button.active { color: var(--text); border-bottom-color: var(--accent); }
 .count { background: var(--panel-2); border-radius: 10px; padding: 0 7px; font-size: 11px; margin-left: 4px; }
 
@@ -143,6 +150,7 @@ footer { text-align: center; color: var(--muted); font-size: 12px; padding: 20px
   .form.two { grid-template-columns: 1fr; }
   .kv { grid-template-columns: 1fr; }
   .topbar { flex-direction: column; align-items: flex-start; }
+  .modules { padding-left: 12px; padding-right: 12px; }
   .tabs { padding-left: 12px; padding-right: 12px; }
   main { padding-left: 12px; padding-right: 12px; }
   .wallet { width: 100%; flex-wrap: wrap; }

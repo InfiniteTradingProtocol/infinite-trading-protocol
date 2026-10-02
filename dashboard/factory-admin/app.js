@@ -225,6 +225,8 @@
     if (v) return v.name;
     const v3 = state.v3Vaults.find((x) => eq(x.address, a));
     if (v3) return v3.name;
+    const knownV3 = CFG.v3Compounders.find((x) => eq(x.address, a));
+    if (knownV3) return knownV3.name;
     const k = CFG.knownVaultImplementations.find((x) => eq(x.address, a));
     if (k) return `impl ${k.label}`;
     if (eq(a, state.account)) return `you (${short(a)})`;
@@ -302,7 +304,21 @@
     const network = networkFor(chainId);
     if (!network) throw new Error(`Unsupported chain ID ${chainId}.`);
     if (id !== network.chainIdHex) {
-      await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: network.chainIdHex }] });
+      try {
+        await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: network.chainIdHex }] });
+      } catch (e) {
+        if (e.code !== 4902) throw e;
+        await window.ethereum.request({
+          method: "wallet_addEthereumChain",
+          params: [{
+            chainId: network.chainIdHex,
+            chainName: network.chainName,
+            nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+            rpcUrls: [network.rpcUrls[0]],
+            blockExplorerUrls: [network.explorer],
+          }],
+        });
+      }
     }
   }
 
@@ -452,6 +468,12 @@
   }
 
   function renderBatch() {
+    const networkSelect = $("batchNetwork");
+    [...networkSelect.options].forEach((option) => {
+      const chainId = Number(option.value);
+      const count = state.batch.filter((tx) => Number(tx.chainId || CFG.chainId) === chainId).length;
+      option.textContent = `${networkFor(chainId)?.chainName || chainId} (${count})`;
+    });
     const list = $("batchList");
     if (!state.batch.length) {
       list.replaceChildren(h("p", { class: "muted" }, "Empty. Use “Add to batch” on any action."));
@@ -689,8 +711,8 @@
       class: `clickable ${state.selectedV3 === v.address ? "selected" : ""}`,
       onclick: () => selectV3Vault(v.address),
     },
-      h("td", {}, h("div", {}, v.name), h("div", { class: "muted mono" }, short(v.address))),
-      h("td", {}, v.owner ? addrLink(v.owner, labelFor(v.owner)) : "–"),
+      h("td", {}, h("div", {}, v.name), h("div", { class: "muted mono" }, ext(`${networkFor(v.chainId).explorer}/address/${v.address}`, short(v.address)))),
+      h("td", {}, v.owner ? ext(`${networkFor(v.chainId).explorer}/address/${v.owner}`, labelFor(v.owner)) : "–"),
       h("td", {}, v.tokenId == null ? "–" : String(v.tokenId)),
       h("td", {}, v.totalShares == null ? "–" : fmt(v.totalShares)),
       h("td", {}, v.totalLiquidity == null ? "–" : String(v.totalLiquidity)),
@@ -877,9 +899,6 @@
       card("Vaults", `${state.vaults.filter((v) => v.active).length} active / ${state.vaults.length} total`, deadGauges ? `${deadGauges} with a killed gauge` : "all gauges alive"),
       card("Admins (DEFAULT_ADMIN_ROLE)", h("span", {}, ...admins.flatMap((a, i) => [i ? ", " : "", addrLink(a)])), admins.length ? null : "none"),
     ];
-    if (state.staking) cards.push(card("ITP Staking V1", addrLink(CFG.staking, CFG.staking), state.staking.totalStaked == null ? "metrics unavailable" : `${fmt(state.staking.totalStaked)} ITP staked`));
-    if (state.v3Vaults.length) cards.push(card("Uniswap V3 compounders", `${state.v3Vaults.filter((v) => v.available).length} live / ${state.v3Vaults.length} registered`, "Base"));
-    if (state.assets.length) cards.push(card("cbEGGS", addrLink(CFG.tokens.cbEggsBase, "Base token"), "Supply and compounder balances in Assets"));
     $("overviewCards").replaceChildren(...cards);
 
     const repoFile = (p) => `${CFG.repo}/${p}`;
@@ -1411,13 +1430,35 @@
 
   // ---------- wiring ----------
 
+  const moduleDefaults = {
+    velodrome: "overview",
+    uniswap: "v3",
+    staking: "staking",
+    assets: "assets",
+  };
+
+  function activateTab(tabButton) {
+    const selectedModule = tabButton.dataset.module;
+    document.querySelectorAll("#tabs button").forEach((button) => button.classList.toggle("active", button === tabButton));
+    document.querySelectorAll(".tab").forEach((section) => section.classList.toggle("active", section.id === `tab-${tabButton.dataset.tab}` && section.dataset.module === selectedModule));
+  }
+
+  function activateModule(moduleName) {
+    document.querySelectorAll("#modules button").forEach((button) => button.classList.toggle("active", button.dataset.module === moduleName));
+    const moduleTabs = [...document.querySelectorAll("#tabs button")].filter((button) => button.dataset.module === moduleName);
+    document.querySelectorAll("#tabs button").forEach((button) => {
+      button.hidden = button.dataset.module !== moduleName;
+      button.classList.remove("active");
+    });
+    $("tabs").setAttribute("aria-label", `${document.querySelector(`#modules button[data-module="${moduleName}"]`).textContent.trim()} sections`);
+    const activeTab = moduleTabs.find((button) => button.dataset.tab === moduleDefaults[moduleName]) || moduleTabs[0];
+    if (activeTab) activateTab(activeTab);
+  }
+
   function wire() {
-    document.querySelectorAll("#tabs button").forEach((b) =>
-      b.addEventListener("click", () => {
-        document.querySelectorAll("#tabs button").forEach((x) => x.classList.toggle("active", x === b));
-        document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.id === `tab-${b.dataset.tab}`));
-      }),
-    );
+    document.querySelectorAll("#modules button").forEach((button) => button.addEventListener("click", () => activateModule(button.dataset.module)));
+    document.querySelectorAll("#tabs button").forEach((button) => button.addEventListener("click", () => activateTab(button)));
+    activateModule("velodrome");
     $("connect").addEventListener("click", () => connect().catch((e) => notice("err", h("div", {}, e.message))));
     $("actAs").addEventListener("change", (e) => {
       state.actAs = e.target.value;
