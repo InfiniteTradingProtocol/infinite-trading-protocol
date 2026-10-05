@@ -10,12 +10,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Infinite Trading Administration Dashboard</title>
-  <link rel="stylesheet" href="style.css?v=5">
+  <link rel="stylesheet" href="style.css?v=7">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.4/ethers.umd.min.js"
           integrity="sha384-6Zl0Pc8zjSz8KvmNeXRvUQgY4ryFb+BwDvKCmLYcBME0joAaru491tQgi9B7zsMM"
           crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <script src="config.js?v=5"></script>
-  <script src="app.js?v=6" defer></script>
+  <script src="app.js?v=8" defer></script>
 </head>
 <body>
   <header class="topbar">
@@ -38,11 +38,12 @@
     </div>
   </header>
 
-  <nav class="modules" id="modules" aria-label="Contract families">
+  <nav class="modules" id="modules" aria-label="Contract families and global tools">
     <button data-module="velodrome" class="active">Velodrome Auto Compounder</button>
     <button data-module="uniswap">Uniswap V3 Auto Compounders</button>
     <button data-module="staking">ITP Staking</button>
     <button data-module="assets">Assets</button>
+    <button data-global-tab="batch">Batch <span id="batchCount" class="count">0</span></button>
   </nav>
   <nav class="tabs" id="tabs" aria-label="Velodrome Auto Compounder sections">
     <button data-module="velodrome" data-tab="overview" class="active">Overview</button>
@@ -50,7 +51,6 @@
     <button data-module="velodrome" data-tab="upgrades">Upgrades</button>
     <button data-module="velodrome" data-tab="roles">Roles</button>
     <button data-module="velodrome" data-tab="create">Create vault</button>
-    <button data-module="velodrome" data-tab="batch">Batch <span id="batchCount" class="count">0</span></button>
     <button data-module="uniswap" data-tab="v3">Vaults</button>
     <button data-module="uniswap" data-tab="v3-scan">Scans</button>
     <button data-module="staking" data-tab="staking">Overview &amp; operations</button>
@@ -249,7 +249,7 @@
       </div>
     </section>
 
-    <section id="tab-batch" class="tab" data-module="velodrome">
+    <section id="tab-batch" class="tab" data-module="global">
       <div class="card">
         <div class="row between">
           <h3>Batch</h3>
@@ -266,7 +266,7 @@
             <button id="batchClear" class="btn danger">Clear</button>
           </div>
         </div>
-        <p class="muted">In the Safe app: Apps → Transaction Builder → drag the JSON in → Create batch → Send. Signers review the same calls listed here.</p>
+        <p class="muted">The queue and its actions are scoped to the selected network. Export each network separately in Safe Transaction Builder; calls from different chains cannot execute atomically together.</p>
         <div id="batchList"></div>
       </div>
     </section>
