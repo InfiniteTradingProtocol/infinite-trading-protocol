@@ -323,6 +323,7 @@
   }
 
   const executor = () => (state.actAs === "dao" ? CFG.dao : state.account);
+  const transactionExecutor = (tx) => tx.executionMode === "connected" ? state.account : executor();
 
   function renderAccount() {
     const el = $("account");
@@ -330,6 +331,7 @@
     el.className = `pill ${state.account ? "" : "muted"}`;
     $("connect").textContent = state.account ? "Reconnect" : "Connect wallet";
     if (!$("harvestRecipient").value && state.account) $("harvestRecipient").value = state.account;
+    if (state.selectedV3) updateV3WalletAccess();
   }
 
   // ---------- transactions ----------
@@ -340,7 +342,7 @@
       try {
         const p = errIface.parseError(data);
         if (p) {
-          const args = p.args.map((a) => (typeof a === "string" && a.length === 66 ? roleName(a) : typeof a === "string" ? labelFor(a) : String(a)));
+          const args = p.args.map((arg, index) => p.fragment.inputs[index].type === "address" ? labelFor(arg) : p.fragment.inputs[index].type === "bytes32" ? roleName(arg) : String(arg));
           return `${p.name}(${args.join(", ")})`;
         }
       } catch {
@@ -358,8 +360,8 @@
     return e?.reason || e?.shortMessage || e?.message || String(e);
   }
 
-  async function simulate(tx, from = executor()) {
-    if (!from) return { ok: false, reason: "Connect a wallet or set “Act as” to DAO Safe." };
+  async function simulate(tx, from = transactionExecutor(tx)) {
+    if (!from) return { ok: false, reason: tx.executionMode === "connected" ? "Connect the owner or keeper wallet first." : "Connect a wallet or set “Act as” to DAO Safe." };
     try {
       const chainId = Number(tx.chainId || CFG.chainId);
       const provider = providerFor(chainId);
@@ -377,10 +379,11 @@
     await ensureChain(chainId);
     const signer = await state.wallet.getSigner();
     const from = await signer.getAddress();
-    if (state.actAs === "dao" && !eq(from, CFG.dao)) {
+    if (tx.executionMode !== "connected" && state.actAs === "dao" && !eq(from, CFG.dao)) {
       throw new Error(`“Act as” is DAO Safe but the wallet account is ${short(from)}. Select the Safe account in your wallet, or add this to the batch and execute it in the Safe app.`);
     }
     const sim = await simulate(tx, from);
+    if (!sim.ok && tx.executionMode === "connected") throw new Error(sim.reason);
     if (!sim.ok && !window.confirm(`Simulation from ${from} reverts:\n${sim.reason}\n\nSend anyway?`)) throw new Error("cancelled");
     if (tx.confirm && !window.confirm(tx.confirm)) throw new Error("cancelled");
     const resp = await signer.sendTransaction({ to: tx.to, data: tx.data, value: BigInt(tx.value || 0) });
@@ -408,7 +411,7 @@
           onclick: async () => {
             set("", "simulating…");
             const r = await simulate(tx);
-            if (r.ok) set("ok", `✓ simulation OK as ${labelFor(executor())}`);
+            if (r.ok) set("ok", `✓ simulation OK as ${labelFor(transactionExecutor(tx))}`);
             else set("err", `✗ ${r.reason}`);
           },
         }, "Simulate"),
@@ -418,7 +421,7 @@
             try {
               set("", "waiting for wallet…");
               const hash = await sendTx(tx);
-              set("ok", "sent ", ext(`${CFG.explorer}/tx/${hash}`, short(hash)));
+              set("ok", "sent ", ext(`${networkFor(Number(tx.chainId || CFG.chainId)).explorer}/tx/${hash}`, short(hash)));
             } catch (e) {
               set("err", e.message === "cancelled" ? "cancelled" : decodeError(e));
             }
@@ -463,7 +466,7 @@
   }
 
   function addToBatch(tx) {
-    state.batch.push({ label: tx.label, to: tx.to, data: tx.data, value: String(tx.value || 0), sender: tx.sender || "", chainId: Number(tx.chainId || CFG.chainId) });
+    state.batch.push({ label: tx.label, to: tx.to, data: tx.data, value: String(tx.value || 0), sender: tx.sender || "", chainId: Number(tx.chainId || CFG.chainId), executionMode: tx.executionMode });
     saveBatch();
   }
 
@@ -474,13 +477,16 @@
       const count = state.batch.filter((tx) => Number(tx.chainId || CFG.chainId) === chainId).length;
       option.textContent = `${networkFor(chainId)?.chainName || chainId} (${count})`;
     });
+    const selectedChainId = Number(networkSelect.value || CFG.chainId);
+    const transactions = state.batch.filter((tx) => Number(tx.chainId || CFG.chainId) === selectedChainId);
     const list = $("batchList");
-    if (!state.batch.length) {
-      list.replaceChildren(h("p", { class: "muted" }, "Empty. Use “Add to batch” on any action."));
+    if (!transactions.length) {
+      list.replaceChildren(h("p", { class: "muted" }, `No ${networkFor(selectedChainId)?.chainName || "network"} transactions queued. Add actions from a contract section on this network.`));
       return;
     }
     list.replaceChildren(
-      ...state.batch.map((t, i) => {
+      ...transactions.map((t, i) => {
+        const batchIndex = state.batch.indexOf(t);
         const box = txBox(t);
         box.prepend(
           h(
@@ -490,9 +496,9 @@
             h(
               "div",
               { class: "row" },
-              h("button", { class: "btn small", disabled: i === 0, onclick: () => moveBatch(i, -1) }, "↑"),
-              h("button", { class: "btn small", disabled: i === state.batch.length - 1, onclick: () => moveBatch(i, 1) }, "↓"),
-              h("button", { class: "btn small danger", onclick: () => { state.batch.splice(i, 1); saveBatch(); } }, "Remove"),
+              h("button", { class: "btn small", disabled: i === 0, onclick: () => moveBatch(batchIndex, -1) }, "↑"),
+              h("button", { class: "btn small", disabled: i === transactions.length - 1, onclick: () => moveBatch(batchIndex, 1) }, "↓"),
+              h("button", { class: "btn small danger", onclick: () => { state.batch.splice(batchIndex, 1); saveBatch(); } }, "Remove"),
             ),
           ),
         );
@@ -502,8 +508,12 @@
   }
 
   function moveBatch(i, d) {
-    const [t] = state.batch.splice(i, 1);
-    state.batch.splice(i + d, 0, t);
+    const chainId = Number(state.batch[i]?.chainId || CFG.chainId);
+    const chainIndexes = state.batch.flatMap((tx, index) => Number(tx.chainId || CFG.chainId) === chainId ? [index] : []);
+    const chainPosition = chainIndexes.indexOf(i);
+    const targetIndex = chainIndexes[chainPosition + d];
+    if (targetIndex == null) return;
+    [state.batch[i], state.batch[targetIndex]] = [state.batch[targetIndex], state.batch[i]];
     saveBatch();
   }
 
@@ -532,7 +542,9 @@
   }
 
   async function sendBatch() {
-    for (const t of [...state.batch]) {
+    const chainId = Number($("batchNetwork").value || CFG.chainId);
+    const transactions = state.batch.filter((tx) => Number(tx.chainId || CFG.chainId) === chainId);
+    for (const t of transactions) {
       try {
         await sendTx(t);
       } catch (e) {
@@ -678,7 +690,7 @@
     const vault = new ethers.Contract(def.address, V3_ABI, provider);
     const calls = ["owner", "dao", "token0", "token1", "pool", "poolFee", "tokenId", "totalShares", "totalLiquidity", "pendingFees", "maxSlippageBps", "twapPeriod"];
     const values = await Promise.all(calls.map((name) => safeCall(vault[name](), null)));
-    const providerAddress = [CFG.dao, "0xE6C312d661bE5e3eC022e2F18e084713A434A340", "0x233EC2735d58698eFC4d5f24A521AA251252f0C0"];
+    const providerAddress = [...new Set([CFG.dao, state.account, "0xE6C312d661bE5e3eC022e2F18e084713A434A340", "0x233EC2735d58698eFC4d5f24A521AA251252f0C0"].filter(Boolean))];
     const keepers = await Promise.all(providerAddress.map(async (address) => (await safeCall(vault.isKeeper(address), false)) ? address : null));
     const implementation = await safeCall(provider.getStorage(def.address, IMPL_SLOT), null);
     const [symbol0, symbol1] = await Promise.all([values[2], values[3]].map(async (address, i) => {
@@ -702,7 +714,7 @@
   }
 
   function v3Tx(vault, method, args, label, opts = {}) {
-    return { ...opts, label: `${vault.name}: ${label}`, to: vault.address, data: new ethers.Interface(V3_ABI).encodeFunctionData(method, args), sender: `owner (${vault.owner ? labelFor(vault.owner) : "unknown"})`, chainId: vault.chainId };
+    return { label: `${vault.name}: ${label}`, to: vault.address, data: new ethers.Interface(V3_ABI).encodeFunctionData(method, args), sender: `owner (${vault.owner ? labelFor(vault.owner) : "unknown"})`, chainId: vault.chainId, ...opts };
   }
 
   function renderV3() {
@@ -752,10 +764,10 @@
         ["Shares / liquidity", `${vault.totalShares == null ? "–" : fmt(vault.totalShares)} / ${vault.totalLiquidity ?? "–"}`],
         ["Pending fees", fees],
         ["TWAP / slippage", `${vault.twapPeriod ?? "–"} sec / ${vault.maxSlippageBps == null ? "–" : `${(Number(vault.maxSlippageBps) / 100).toFixed(2)}%`}`],
-        ["Registered keepers", vault.keepers.length ? vault.keepers.map((k) => labelFor(k)).join(", ") : "No configured DAO/known keepers detected"],
+        ["Known approved keepers", vault.keepers.length ? vault.keepers.map((k) => labelFor(k)).join(", ") : "None among the checked addresses"],
       ]),
       h("div", { class: "subgrid" },
-        action("Compound", h("p", { class: "muted" }, "Collect and reinvest available fees. The sender must be the owner or an approved keeper."), "compound", "Build compound", () => v3Tx(vault, "compound", [], "compound fees", { sender: "owner or keeper", chainId: vault.chainId })),
+        action("Compound", h("p", { class: "muted" }, "Collect and reinvest available fees. The sender must be the owner or an approved keeper."), "compound", "Build compound", () => v3Tx(vault, "compound", [], "compound fees", { sender: "connected wallet (owner or keeper)", executionMode: "connected" })),
         h("div", { class: "subcard" }, h("h4", {}, "Keeper access"), h("div", { class: "form" }, h("label", {}, "Keeper address", input("keeper", "", "0x…"))),
           h("div", { class: "row" },
             h("button", { class: "btn", onclick: () => showTx(controls.keeper, () => v3Tx(vault, "addKeeper", [requireAddress($("keeper").value, "Keeper")], "add keeper")) }, "Build add keeper"),
@@ -775,6 +787,53 @@
         action("Upgrade implementation", h("div", { class: "form" }, h("label", {}, "New implementation", input("newImpl", "", "0x…"))), "newImpl", "Build UUPS upgrade", () => v3Tx(vault, "upgradeToAndCall", [requireAddress($("newImpl").value, "Implementation"), "0x"], "upgrade implementation", { warning: "This replaces the vault logic. Confirm storage-layout compatibility before execution.", confirm: `Upgrade ${vault.name} implementation?` })),
       ),
     );
+    const summary = panel.querySelector(".kv");
+    const actions = [...panel.querySelector(".subgrid").children];
+    const groups = [
+      { name: "Overview", nodes: [summary] },
+      { name: "Keeper operations", nodes: [h("div", { id: "v3WalletAccess", role: "status" }), actions[0]] },
+      { name: "Owner settings", nodes: actions.slice(1, 6) },
+      { name: "Upgrades", nodes: [actions[6], h("div", { class: "v3-source-links" }, ext(`${CFG.repo}/contracts/src/UniV3AutoCompounder.sol`, "Contract source"), " · ", ext(`${networkFor(vault.chainId).explorer}/address/${vault.address}#code`, "Proxy code"))] },
+    ];
+    panel.querySelector(".subgrid").remove();
+    const navigation = h("div", { class: "v3-sections", role: "tablist", "aria-label": `${vault.name} controls` });
+    const panes = groups.map((group, index) => h("div", { class: `v3-section ${index ? "hidden" : ""}`, role: "tabpanel", id: `v3-section-${index}`, "aria-labelledby": `v3-section-tab-${index}` }, group.nodes));
+    groups.forEach((group, index) => {
+      const button = h("button", {
+        id: `v3-section-tab-${index}`, class: index ? "" : "active", role: "tab", type: "button",
+        "aria-selected": String(index === 0), "aria-controls": panes[index].id,
+        onclick: () => {
+          [...navigation.children].forEach((tab, tabIndex) => {
+            tab.classList.toggle("active", tabIndex === index);
+            tab.setAttribute("aria-selected", String(tabIndex === index));
+            panes[tabIndex].classList.toggle("hidden", tabIndex !== index);
+          });
+        },
+      }, group.name);
+      navigation.append(button);
+    });
+    panel.append(navigation, ...panes);
+    updateV3WalletAccess();
+  }
+
+  async function updateV3WalletAccess() {
+    const vault = state.v3Vaults.find((entry) => eq(entry.address, state.selectedV3));
+    const box = $("v3WalletAccess");
+    if (!vault || !box) return;
+    const account = state.account;
+    if (!account) {
+      box.replaceChildren(badge("info", "Wallet not connected"));
+      return;
+    }
+    box.replaceChildren(h("span", { class: "muted" }, "Checking wallet permissions…"));
+    try {
+      const contract = new ethers.Contract(vault.address, V3_ABI, providerFor(vault.chainId));
+      const [owner, keeper] = await Promise.all([contract.owner(), contract.isKeeper(account)]);
+      if (box !== $("v3WalletAccess") || !eq(account, state.account)) return;
+      box.replaceChildren(h("span", { class: "mono" }, account), " ", badge(eq(owner, account) ? "ok" : keeper ? "ok" : "warn", eq(owner, account) ? "Owner" : keeper ? "Approved keeper" : "Not authorized to compound"));
+    } catch (error) {
+      if (box === $("v3WalletAccess") && eq(account, state.account)) box.replaceChildren(h("span", { class: "result err" }, `Permission check unavailable: ${decodeError(error)}`));
+    }
   }
 
   async function scanV3Balances() {
@@ -1439,12 +1498,18 @@
 
   function activateTab(tabButton) {
     const selectedModule = tabButton.dataset.module;
+    $("tabs").classList.remove("hidden");
+    document.querySelector("#modules [data-global-tab]").classList.remove("active");
     document.querySelectorAll("#tabs button").forEach((button) => button.classList.toggle("active", button === tabButton));
     document.querySelectorAll(".tab").forEach((section) => section.classList.toggle("active", section.id === `tab-${tabButton.dataset.tab}` && section.dataset.module === selectedModule));
   }
 
   function activateModule(moduleName) {
-    document.querySelectorAll("#modules button").forEach((button) => button.classList.toggle("active", button.dataset.module === moduleName));
+    const moduleButton = document.querySelector(`#modules button[data-module="${moduleName}"]`);
+    if (!moduleButton) return;
+    document.querySelectorAll("#modules button[data-module]").forEach((button) => button.classList.toggle("active", button === moduleButton));
+    document.querySelector("#modules [data-global-tab]").classList.remove("active");
+    $("tabs").classList.remove("hidden");
     const moduleTabs = [...document.querySelectorAll("#tabs button")].filter((button) => button.dataset.module === moduleName);
     document.querySelectorAll("#tabs button").forEach((button) => {
       button.hidden = button.dataset.module !== moduleName;
@@ -1455,8 +1520,22 @@
     if (activeTab) activateTab(activeTab);
   }
 
+  function activateGlobalTab(tabName) {
+    const globalButton = document.querySelector(`#modules [data-global-tab="${tabName}"]`);
+    if (!globalButton) return;
+    document.querySelectorAll("#modules button[data-module]").forEach((button) => button.classList.remove("active"));
+    globalButton.classList.add("active");
+    $("tabs").classList.add("hidden");
+    document.querySelectorAll(".tab").forEach((section) => section.classList.toggle("active", section.id === `tab-${tabName}` && section.dataset.module === "global"));
+  }
+
   function wire() {
-    document.querySelectorAll("#modules button").forEach((button) => button.addEventListener("click", () => activateModule(button.dataset.module)));
+    $("modules").addEventListener("click", (event) => {
+      const moduleButton = event.target.closest("button[data-module]");
+      if (moduleButton) activateModule(moduleButton.dataset.module);
+      const globalButton = event.target.closest("button[data-global-tab]");
+      if (globalButton) activateGlobalTab(globalButton.dataset.globalTab);
+    });
     document.querySelectorAll("#tabs button").forEach((button) => button.addEventListener("click", () => activateTab(button)));
     activateModule("velodrome");
     $("connect").addEventListener("click", () => connect().catch((e) => notice("err", h("div", {}, e.message))));
@@ -1495,8 +1574,10 @@
     $("batchNetwork").addEventListener("change", renderBatch);
     $("batchSend").addEventListener("click", sendBatch);
     $("batchClear").addEventListener("click", () => {
-      if (window.confirm("Clear the batch?")) {
-        state.batch = [];
+      const chainId = Number($("batchNetwork").value || CFG.chainId);
+      const networkName = networkFor(chainId)?.chainName || "selected network";
+      if (window.confirm(`Clear the ${networkName} batch?`)) {
+        state.batch = state.batch.filter((tx) => Number(tx.chainId || CFG.chainId) !== chainId);
         saveBatch();
       }
     });
