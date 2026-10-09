@@ -144,6 +144,12 @@ tr.selected td { background: rgba(91, 140, 255, .1); }
 .help { margin: 0; padding-left: 18px; color: var(--muted); }
 .help b { color: var(--text); }
 
+tr.muted-row td { opacity: .55; }
+.slider { width: 100%; margin: 10px 0 4px; }
+#safeAssetsTable td:first-child, #safeAssetsTable th:first-child { width: 28px; }
+#safeAssetsTable input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); }
+#safeAssetsTable .badge { margin: 1px 2px 1px 0; }
+
 .v3-sections { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--border); margin: 12px 0 18px; }
 .v3-sections button { border: 0; border-bottom: 2px solid transparent; background: none; color: var(--muted); padding: 10px 14px; cursor: pointer; font: inherit; }
 .v3-sections button.active { border-bottom-color: var(--accent); color: var(--text); }
