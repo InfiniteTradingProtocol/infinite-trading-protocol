@@ -10,12 +10,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Infinite Trading Administration Dashboard</title>
-  <link rel="stylesheet" href="style.css?v=7">
+  <link rel="stylesheet" href="style.css?v=9">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.4/ethers.umd.min.js"
           integrity="sha384-6Zl0Pc8zjSz8KvmNeXRvUQgY4ryFb+BwDvKCmLYcBME0joAaru491tQgi9B7zsMM"
           crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-  <script src="config.js?v=5"></script>
-  <script src="app.js?v=8" defer></script>
+  <script src="config.js?v=11"></script>
+  <script src="app.js?v=17" defer></script>
 </head>
 <body>
   <header class="topbar">
@@ -23,7 +23,7 @@
       <span class="logo">∞</span>
       <div>
         <div class="title">Infinite Trading Administration Dashboard</div>
-        <div class="subtitle">Protocol operations · Ethereum · Optimism · Base</div>
+        <div class="subtitle">Protocol operations · Ethereum · Optimism · Base · Arbitrum · Polygon</div>
       </div>
     </div>
     <div class="wallet">
@@ -43,6 +43,7 @@
     <button data-module="uniswap">Uniswap V3 Auto Compounders</button>
     <button data-module="staking">ITP Staking</button>
     <button data-module="assets">Assets</button>
+    <button data-module="safe">DAO Safe</button>
     <button data-global-tab="batch">Batch <span id="batchCount" class="count">0</span></button>
   </nav>
   <nav class="tabs" id="tabs" aria-label="Velodrome Auto Compounder sections">
@@ -54,7 +55,9 @@
     <button data-module="uniswap" data-tab="v3">Vaults</button>
     <button data-module="uniswap" data-tab="v3-scan">Scans</button>
     <button data-module="staking" data-tab="staking">Overview &amp; operations</button>
+    <button data-module="staking" data-tab="itp-burn">Burn ITP</button>
     <button data-module="assets" data-tab="assets">Token monitor</button>
+    <button data-module="safe" data-tab="safe-drain">Treasury &amp; drain</button>
   </nav>
 
   <main>
@@ -132,6 +135,36 @@
       </div>
     </section>
 
+    <section id="tab-itp-burn" class="tab" data-module="staking">
+      <div class="card">
+        <div class="row between">
+          <div>
+            <h3>Burn ITP</h3>
+            <div class="muted">Optimism · <span id="burnToken"></span></div>
+          </div>
+          <button id="refreshBurn" class="btn">Refresh</button>
+        </div>
+        <p class="muted">Calls <code>burn(uint256)</code>, which destroys ITP from the sender's own balance and permanently reduces the total supply. This cannot be undone. Only the Optimism ITP has a burn function.</p>
+        <div id="burnSummary" class="grid"></div>
+      </div>
+      <div class="card">
+        <h3>Burn amount</h3>
+        <div class="form two">
+          <label>Burn from
+            <select id="burnSource">
+              <option value="dao">DAO Safe (add to batch)</option>
+              <option value="wallet">Connected wallet (send now)</option>
+            </select>
+          </label>
+          <label>Amount (ITP) <input id="burnAmount" inputmode="decimal" placeholder="0.0"></label>
+        </div>
+        <input id="burnSlider" class="slider" type="range" min="0" max="100" step="0.1" value="0" aria-label="Share of the available balance to burn">
+        <div class="row between"><span id="burnHint" class="muted"></span><button id="burnMax" class="btn small">Max</button></div>
+        <div class="row"><button id="buildBurn" class="btn primary">Build burn</button></div>
+        <div id="burnTx"></div>
+      </div>
+    </section>
+
     <section id="tab-v3" class="tab" data-module="uniswap">
       <div class="card">
         <div class="row between">
@@ -174,6 +207,49 @@
         <h3>StSATO</h3>
         <p class="muted">Ethereum · read-only monitor. The launch function renounces ownership, so this contract has no post-launch admin controls.</p>
         <div id="stsatoSummary"></div>
+      </div>
+    </section>
+
+    <section id="tab-safe-drain" class="tab" data-module="safe">
+      <div class="card">
+        <h3>DAO Safe treasury</h3>
+        <p class="muted">Scans every token, dHEDGE vault token, NFT and position (LP NFTs, veNFTs, streams) the Safe holds on the selected network, then moves the selected assets to another wallet in one Safe transaction.</p>
+        <div class="form two">
+          <label>Network <select id="safeNetwork"></select></label>
+          <label>Safe address <input id="safeAddress" placeholder="0x…"></label>
+        </div>
+        <button id="safeScan" class="btn primary">Scan Safe</button>
+        <div id="safeInfo"></div>
+      </div>
+      <div id="safeAssetsCard" class="card hidden">
+        <div class="row between">
+          <h3>Assets <span id="safeSelCount" class="count">0</span></h3>
+          <div class="row">
+            <label id="safeScamToggle" class="hidden"><input id="safeShowScam" type="checkbox"> <span id="safeScamLabel"></span></label>
+            <button id="safeSelectAll" class="btn small">Select all</button>
+            <button id="safeSelectClean" class="btn small">Select all except flagged</button>
+            <button id="safeSelectNone" class="btn small">Select none</button>
+          </div>
+        </div>
+        <div class="table-wrap"><table id="safeAssetsTable"></table></div>
+        <div class="form two">
+          <label>Add a missing token / NFT contract <input id="safeManualToken" placeholder="0x…"></label>
+          <label>NFT token ID (empty for ERC-20) <input id="safeManualId" inputmode="numeric" placeholder="optional"></label>
+        </div>
+        <div class="row"><button id="safeManualAdd" class="btn small">Add asset</button><span id="safeManualResult"></span></div>
+      </div>
+      <div id="safeDrainCard" class="card hidden">
+        <h3>Drain selected assets</h3>
+        <p class="muted">Every selected asset becomes one call in a single Safe batch (MultiSend). The batch is atomic: if any call fails, nothing moves, so simulate first. Failing assets are unselected automatically.</p>
+        <div class="form">
+          <label>Destination wallet <input id="safeDestination" placeholder="0x…"></label>
+        </div>
+        <div class="row">
+          <button id="safeSimulate" class="btn">Simulate selected</button>
+          <button id="safeExport" class="btn primary">Download Safe Transaction Builder JSON</button>
+          <button id="safeAddBatch" class="btn">Add to batch</button>
+        </div>
+        <div id="safeDrainResult"></div>
       </div>
     </section>
 
@@ -259,6 +335,8 @@
                 <option value="10">Optimism</option>
                 <option value="8453">Base</option>
                 <option value="1">Ethereum</option>
+                <option value="42161">Arbitrum</option>
+                <option value="137">Polygon</option>
               </select>
             </label>
             <button id="batchExport" class="btn primary">Download Safe Transaction Builder JSON</button>

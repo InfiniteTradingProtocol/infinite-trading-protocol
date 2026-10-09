@@ -313,7 +313,7 @@
           params: [{
             chainId: network.chainIdHex,
             chainName: network.chainName,
-            nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+            nativeCurrency: { name: network.nativeSymbol || "Ether", symbol: network.nativeSymbol || "ETH", decimals: 18 },
             rpcUrls: [network.rpcUrls[0]],
             blockExplorerUrls: [network.explorer],
           }],
@@ -323,7 +323,7 @@
   }
 
   const executor = () => (state.actAs === "dao" ? CFG.dao : state.account);
-  const transactionExecutor = (tx) => tx.executionMode === "connected" ? state.account : executor();
+  const transactionExecutor = (tx) => tx.executionMode === "connected" ? state.account : tx.executionMode === "dao" ? CFG.dao : executor();
 
   function renderAccount() {
     const el = $("account");
@@ -332,6 +332,7 @@
     $("connect").textContent = state.account ? "Reconnect" : "Connect wallet";
     if (!$("harvestRecipient").value && state.account) $("harvestRecipient").value = state.account;
     if (state.selectedV3) updateV3WalletAccess();
+    if (state.burn) loadBurn().catch(() => {});
   }
 
   // ---------- transactions ----------
@@ -379,8 +380,9 @@
     await ensureChain(chainId);
     const signer = await state.wallet.getSigner();
     const from = await signer.getAddress();
-    if (tx.executionMode !== "connected" && state.actAs === "dao" && !eq(from, CFG.dao)) {
-      throw new Error(`“Act as” is DAO Safe but the wallet account is ${short(from)}. Select the Safe account in your wallet, or add this to the batch and execute it in the Safe app.`);
+    const needsDao = tx.executionMode === "dao" || (tx.executionMode !== "connected" && state.actAs === "dao");
+    if (needsDao && !eq(from, CFG.dao)) {
+      throw new Error(`This must be sent by the DAO Safe but the wallet account is ${short(from)}. Select the Safe account in your wallet, or add this to the batch and execute it in the Safe app.`);
     }
     const sim = await simulate(tx, from);
     if (!sim.ok && tx.executionMode === "connected") throw new Error(sim.reason);
@@ -427,7 +429,7 @@
             }
           },
         }, "Send"),
-        h("button", {
+        tx.noBatch ? null : h("button", {
           class: "btn small",
           onclick: () => {
             addToBatch(tx);
@@ -680,6 +682,101 @@
       { label: "Staking V1: approve ITP rewards", to: CFG.tokens.itpOptimism, data: token.encodeFunctionData("approve", [CFG.staking, amount]), sender: "ITP token holder", chainId: 10 },
       stakingTx("depositRewards", amount, `deposit ${fmt(amount)} ITP rewards`, { sender: "anyone with ITP" }),
     ];
+  }
+
+  // ---------- ITP burn ----------
+
+  const ITP_BURN_IFACE = new ethers.Interface(["function burn(uint256 value)"]);
+
+  async function loadBurn() {
+    const provider = providerFor(10);
+    if (!provider) throw new Error(state.networkErrors[10] || "Optimism RPC unavailable.");
+    const token = new ethers.Contract(CFG.tokens.itpOptimism, ERC20_ABI, provider);
+    const [daoBalance, walletBalance, totalSupply] = await Promise.all([
+      safeCall(token.balanceOf(CFG.dao), null),
+      state.account ? safeCall(token.balanceOf(state.account), null) : null,
+      safeCall(token.totalSupply(), null),
+    ]);
+    state.burn = { daoBalance, walletBalance, totalSupply };
+    renderBurn();
+  }
+
+  const burnBalance = () => (state.burn ? ($("burnSource").value === "wallet" ? state.burn.walletBalance : state.burn.daoBalance) : null);
+
+  function parseBurnAmount() {
+    try {
+      return ethers.parseUnits(($("burnAmount").value || "0").trim() || "0", 18);
+    } catch {
+      return null;
+    }
+  }
+
+  function updateBurnHint() {
+    const balance = burnBalance();
+    const amount = parseBurnAmount();
+    const hint = $("burnHint");
+    if (balance == null) {
+      hint.textContent = $("burnSource").value === "wallet" ? "Connect a wallet to see its ITP balance." : "Balance unavailable.";
+      return;
+    }
+    const parts = [`Available: ${fmt(balance, 18, 4)} ITP`];
+    if (amount == null) parts.push("invalid amount");
+    else if (amount > balance) parts.push("exceeds the available balance");
+    else if (amount > 0n) {
+      parts.push(`${balance > 0n ? Number((amount * 10000n) / balance) / 100 : 0}% of balance`);
+      if (state.burn.totalSupply) parts.push(`${Number((amount * 1000000n) / state.burn.totalSupply) / 10000}% of total supply`);
+    }
+    hint.textContent = parts.join(" · ");
+  }
+
+  function renderBurn() {
+    $("burnToken").replaceChildren(addrLink(CFG.tokens.itpOptimism, CFG.tokens.itpOptimism));
+    if (!state.burn) return;
+    const b = state.burn;
+    const cards = [
+      ["DAO Safe balance", b.daoBalance == null ? "Unavailable" : `${fmt(b.daoBalance)} ITP`],
+      ["Connected wallet balance", state.account ? (b.walletBalance == null ? "Unavailable" : `${fmt(b.walletBalance)} ITP`) : "Not connected"],
+      ["Total supply", b.totalSupply == null ? "Unavailable" : `${fmt(b.totalSupply)} ITP`],
+    ];
+    $("burnSummary").replaceChildren(...cards.map(([label, text]) => h("div", { class: "card" }, h("div", { class: "stat-label" }, label), h("div", { class: "stat-value" }, text))));
+    onBurnAmountInput();
+  }
+
+  function onBurnSlider() {
+    const balance = burnBalance();
+    if (balance == null) return;
+    const tenths = BigInt(Math.round(Number($("burnSlider").value) * 10));
+    $("burnAmount").value = tenths >= 1000n ? ethers.formatUnits(balance, 18) : ethers.formatUnits((balance * tenths) / 1000n, 18);
+    updateBurnHint();
+  }
+
+  function onBurnAmountInput() {
+    const balance = burnBalance();
+    const amount = parseBurnAmount();
+    if (balance != null && balance > 0n && amount != null) $("burnSlider").value = String(Math.min(100, Number((amount * 1000n) / balance) / 10));
+    updateBurnHint();
+  }
+
+  function buildBurn() {
+    const source = $("burnSource").value;
+    const from = source === "wallet" ? state.account : CFG.dao;
+    if (!from) throw new Error("Connect a wallet first.");
+    const amount = parseBurnAmount();
+    if (amount == null) throw new Error("Amount is not a valid number.");
+    if (amount <= 0n) throw new Error("Amount must be greater than zero.");
+    const balance = burnBalance();
+    if (balance != null && amount > balance) throw new Error(`Amount exceeds the ${source === "wallet" ? "wallet" : "DAO Safe"} balance of ${fmt(balance)} ITP.`);
+    const who = source === "wallet" ? short(from) : "DAO Safe";
+    return {
+      label: `ITP: burn ${fmt(amount, 18, 6)} ITP from ${who}`,
+      to: CFG.tokens.itpOptimism,
+      data: ITP_BURN_IFACE.encodeFunctionData("burn", [amount]),
+      sender: `${who} (the burned tokens come from the sender)`,
+      chainId: 10,
+      executionMode: source === "wallet" ? "connected" : "dao",
+      noBatch: source === "wallet",
+      confirm: `Permanently burn ${fmt(amount, 18, 6)} ITP from ${from}? This cannot be undone.`,
+    };
   }
 
   async function loadV3Vault(def) {
@@ -1487,6 +1584,474 @@
     return out;
   }
 
+  // ---------- DAO Safe treasury scan & drain ----------
+
+  const SAFE_ABI = ["function getThreshold() view returns (uint256)", "function getOwners() view returns (address[])", "function nonce() view returns (uint256)", "function VERSION() view returns (string)"];
+  const TOKEN_IFACE = new ethers.Interface([
+    "function balanceOf(address) view returns (uint256)",
+    "function decimals() view returns (uint8)",
+    "function symbol() view returns (string)",
+    "function name() view returns (string)",
+    "function transfer(address to, uint256 amount) returns (bool)",
+  ]);
+  const NFT_IFACE = new ethers.Interface([
+    "function ownerOf(uint256 id) view returns (address)",
+    "function balanceOf(address account, uint256 id) view returns (uint256)",
+    "function safeTransferFrom(address from, address to, uint256 id)",
+    "function safeTransferFrom(address from, address to, uint256 id, uint256 amount, bytes data)",
+  ]);
+  const DHEDGE_ABI = ["function isPool(address) view returns (bool)", "function getExitRemainingCooldown(address) view returns (uint256)", "function getDeployedFunds() view returns (address[])"];
+  const VE_ABI = ["function escrowType(uint256) view returns (uint8)", "function voter() view returns (address)"];
+  const VOTER_IFACE = new ethers.Interface(["function withdrawManaged(uint256 tokenId)"]);
+  // Per Safe transaction; leaves headroom below every supported chain's block gas limit.
+  const DRAIN_GAS_BUDGET = 24_000_000n;
+  const DEFAULT_CALL_GAS = 300_000n;
+  // Airdropped phishing tokens advertise a claim URL or domain in their name or symbol.
+  const SPAM_PATTERN = /https?:|www\.|\b[a-z0-9-]{2,}\s*\.\s*(com|net|org|io|xyz|app|pro|eu|cc|top|vip|lol|site|fi|pl|do|ly|me|gift|live|markets|farm|one)\b|\b[a-z0-9-]{2,}\.[a-z]{2,10}\b|\bclaim\b|\bvisit\b|\bfree\b|airdrop|voucher|\$\s?\d|!|\*|\[\s*[#!]\s*\]|\b\d[o0,.\s]*ooo\b/i;
+
+  async function withRetry(fn, attempts = 4) {
+    for (let i = 0; ; i++) {
+      try {
+        return await fn();
+      } catch (e) {
+        if (i >= attempts - 1) throw e;
+        await new Promise((r) => setTimeout(r, 700 * (i + 1)));
+      }
+    }
+  }
+
+  async function mapLimit(items, limit, fn) {
+    const out = new Array(items.length);
+    let next = 0;
+    await Promise.all(Array.from({ length: Math.min(limit, items.length) }, async () => {
+      while (next < items.length) {
+        const i = next++;
+        out[i] = await fn(items[i], i);
+      }
+    }));
+    return out;
+  }
+
+  const chainLink = (chainId, address, text) => ext(`${networkFor(chainId).explorer}/address/${address}`, text || short(address));
+  const nativeSymbol = (chainId) => networkFor(chainId).nativeSymbol || "ETH";
+
+  async function blockscoutAll(base, path, maxPages = 25) {
+    const items = [];
+    let params = null;
+    for (let page = 0; page < maxPages; page++) {
+      const url = new URL(`${base}${path}`);
+      for (const [k, v] of Object.entries(params || {})) if (v != null) url.searchParams.set(k, v);
+      let body = null;
+      for (let attempt = 0; attempt < 3 && !body; attempt++) {
+        try {
+          const res = await fetch(url);
+          if (res.ok) body = await res.json();
+        } catch {
+          /* blocked or rate limited; retry below */
+        }
+        if (!body) await new Promise((r) => setTimeout(r, 800 * (attempt + 1)));
+      }
+      if (!body) throw new Error(`${new URL(base).host} unavailable`);
+      items.push(...(body.items || []));
+      params = body.next_page_params;
+      if (!params) break;
+    }
+    return items;
+  }
+
+  // Every dHEDGE pool on the chain, balance-checked through Multicall3 so detection never depends on an indexer.
+  async function dhedgeHoldings(chainId, safe) {
+    const provider = providerFor(chainId);
+    const factory = new ethers.Contract(CFG.safeTreasury[chainId].dhedgeFactory, DHEDGE_ABI, provider);
+    const pools = await withRetry(() => factory.getDeployedFunds());
+    const multicall = new ethers.Contract(CFG.multicall3, mcIface, provider);
+    const held = [];
+    for (let i = 0; i < pools.length; i += 250) {
+      const chunk = pools.slice(i, i + 250);
+      const res = await withRetry(() => multicall.aggregate3.staticCall(chunk.map((target) => [target, true, TOKEN_IFACE.encodeFunctionData("balanceOf", [safe])])));
+      res.forEach((r, j) => {
+        if (r.success && r.returnData.length >= 66 && BigInt(r.returnData) > 0n) held.push(ethers.getAddress(chunk[j]));
+      });
+    }
+    return { held, total: pools.length };
+  }
+
+  function knownTokens(chainId) {
+    const extra = chainId === 10 ? state.vaults.flatMap((v) => [v.address, v.want]) : [];
+    return [...(CFG.safeTreasury[chainId].knownTokens || []), ...extra].filter(Boolean).map((a) => ethers.getAddress(a));
+  }
+
+  // Position NFTs whose holdings can be listed on-chain (Uniswap V3 positions, Velodrome/Aerodrome veNFT locks).
+  async function knownNftHoldings(chainId, safe) {
+    const provider = providerFor(chainId);
+    const found = [];
+    await Promise.all((CFG.safeTreasury[chainId].knownNfts || []).map(async ({ address, enumerate }) => {
+      const c = new ethers.Contract(address, ["function balanceOf(address) view returns (uint256)", "function tokenOfOwnerByIndex(address,uint256) view returns (uint256)", "function ownerToNFTokenIdList(address,uint256) view returns (uint256)"], provider);
+      const count = Number(await safeCall(c.balanceOf(safe), 0n));
+      const ids = await mapLimit([...Array(Math.min(count, 200)).keys()], 8, (i) => safeCall(enumerate === "veNFT" ? c.ownerToNFTokenIdList(safe, i) : c.tokenOfOwnerByIndex(safe, i), null));
+      ids.filter((id) => id != null).forEach((id) => found.push([ethers.getAddress(address), BigInt(id)]));
+    }));
+    return found;
+  }
+
+  async function erc20Asset(chainId, safe, address, meta = {}) {
+    const provider = providerFor(chainId);
+    const contract = new ethers.Contract(address, TOKEN_IFACE, provider);
+    const amount = await safeCall(contract.balanceOf(safe), 0n);
+    if (amount === 0n) return null;
+    const [symbol, name, decimals, isPool] = await Promise.all([
+      meta.symbol ? meta.symbol : safeCall(contract.symbol(), short(address)),
+      meta.name ?? safeCall(contract.name(), ""),
+      meta.decimals != null ? meta.decimals : safeCall(contract.decimals(), 18),
+      meta.dhedge ?? safeCall(new ethers.Contract(CFG.safeTreasury[chainId].dhedgeFactory, DHEDGE_ABI, provider).isPool(address), false),
+    ]);
+    const flags = [];
+    const scam = !isPool && (SPAM_PATTERN.test(`${symbol} ${name}`) || Boolean(meta.reputation && meta.reputation !== "ok"));
+    if (scam) flags.push("scam token");
+    if (isPool) {
+      const cooldown = await safeCall(new ethers.Contract(address, DHEDGE_ABI, provider).getExitRemainingCooldown(safe), 0n);
+      if (cooldown > 0n) flags.push(`dHEDGE exit cooldown ${Math.ceil(Number(cooldown) / 60)} min`);
+    }
+    return { kind: "erc20", token: address, symbol: symbol || short(address), name: name || "", decimals: Number(decimals), amount, rate: meta.rate || null, dhedge: Boolean(isPool), scam, flags };
+  }
+
+  async function nftAsset(chainId, safe, address, id, meta = {}) {
+    const contract = new ethers.Contract(address, NFT_IFACE, providerFor(chainId));
+    const symbol = meta.symbol || (await safeCall(new ethers.Contract(address, TOKEN_IFACE, providerFor(chainId)).symbol(), "NFT"));
+    const name = meta.name ?? "";
+    const spam = SPAM_PATTERN.test(`${symbol} ${name}`) || (meta.reputation && meta.reputation !== "ok");
+    const owner = meta.type === "ERC-1155" ? null : await safeCall(contract.ownerOf(id), null);
+    if (eq(owner, safe)) {
+      const asset = { kind: "erc721", token: address, symbol, name, tokenId: id, amount: 1n, position: positionKind(symbol, name), scam: Boolean(spam), flags: spam ? ["scam NFT"] : [] };
+      // Velodrome/Aerodrome veNFTs deposited into a managed NFT (escrowType LOCKED) must be withdrawn before they can move.
+      const ve = new ethers.Contract(address, VE_ABI, providerFor(chainId));
+      if (Number(await safeCall(ve.escrowType(id), 0)) === 1) {
+        const voter = await safeCall(ve.voter(), null);
+        if (voter) asset.prep = [{ to: voter, value: 0n, data: VOTER_IFACE.encodeFunctionData("withdrawManaged", [id]) }];
+      }
+      return asset;
+    }
+    const amount = await safeCall(contract.balanceOf(safe, id), 0n);
+    if (amount === 0n) return null;
+    const scam = Boolean(spam) || !/[a-z]{3}/i.test(name || "");
+    return { kind: "erc1155", token: address, symbol: symbol || "ERC-1155", name, tokenId: id, amount, scam, flags: scam ? ["scam NFT"] : [] };
+  }
+
+  function finalizeAssets(assets) {
+    assets.forEach((a, i) => {
+      a.key = `${a.kind}:${a.token || "native"}:${a.tokenId ?? ""}:${i}`;
+      if (a.selected === undefined) a.selected = !a.scam && a.flags.length === 0;
+      if (a.scam && !a.keepScam) a.selected = false;
+      if (a.sim === undefined) a.sim = null;
+    });
+    return assets;
+  }
+
+  function positionKind(symbol = "", name = "") {
+    const s = `${symbol} ${name}`;
+    if (/SAB-|sablier|stream|llamapay|superfluid/i.test(s)) return "stream";
+    if (/POS|position|NFT-V|CL-POS|POSM/i.test(s)) return "LP position";
+    if (/^ve|veNFT|lock/i.test(symbol) || /vote.?escrow/i.test(name)) return "vote-escrow lock";
+    return null;
+  }
+
+  async function scanSafe(chainId, safe) {
+    const provider = providerFor(chainId);
+    if (!provider) throw new Error(state.networkErrors[chainId] || `${networkFor(chainId).chainName} RPC unavailable.`);
+    const cfg = CFG.safeTreasury[chainId];
+    const warnings = [];
+    const indexer = (path) => blockscoutAll(cfg.blockscout, path).catch((e) => {
+      warnings.push(`${e.message}: ${path.includes("/nft") ? "NFTs/positions" : "non-dHEDGE tokens"} limited to known contracts. Add any missing asset manually or rescan later.`);
+      return null;
+    });
+
+    const [nativeBal, tokens, nfts, dhedge, knownNfts, coin] = await Promise.all([
+      provider.getBalance(safe),
+      indexer(`/api/v2/addresses/${safe}/tokens?type=ERC-20`),
+      indexer(`/api/v2/addresses/${safe}/nft?type=ERC-721,ERC-1155`),
+      dhedgeHoldings(chainId, safe).catch((e) => {
+        warnings.push(`dHEDGE factory scan failed: ${decodeError(e)}`);
+        return { held: [], total: 0 };
+      }),
+      knownNftHoldings(chainId, safe),
+      safeCall(fetch(`${cfg.blockscout}/api/v2/stats`).then((r) => r.json()), null),
+    ]);
+
+    const assets = [];
+    if (nativeBal > 0n) {
+      assets.push({ kind: "native", symbol: nativeSymbol(chainId), name: `${networkFor(chainId).chainName} native coin`, decimals: 18, amount: nativeBal, rate: Number(coin?.coin_price) || null, flags: [] });
+    }
+
+    // Indexer metadata (prices, reputation) is merged in, but every balance is re-read on-chain.
+    const meta = new Map();
+    for (const item of tokens || []) {
+      const t = item.token || {};
+      meta.set(ethers.getAddress(t.address_hash || t.address), { symbol: t.symbol, name: t.name, decimals: t.decimals == null ? null : Number(t.decimals), rate: Number(t.exchange_rate) || null, reputation: t.reputation });
+    }
+    const dhedgeSet = new Set(dhedge.held);
+    const candidates = [...new Set([...meta.keys(), ...dhedge.held, ...knownTokens(chainId)])];
+    const erc20 = await mapLimit(candidates, 8, (address) => erc20Asset(chainId, safe, address, { ...(meta.get(address) || {}), ...(dhedgeSet.has(address) ? { dhedge: true } : {}) }));
+    assets.push(...erc20.filter(Boolean));
+
+    const nftKeys = new Map();
+    for (const item of nfts || []) {
+      const t = item.token || {};
+      nftKeys.set(`${ethers.getAddress(t.address_hash || t.address)}:${BigInt(item.id)}`, { symbol: t.symbol, name: t.name, type: t.type, reputation: t.reputation });
+    }
+    for (const [address, id] of knownNfts) if (!nftKeys.has(`${address}:${id}`)) nftKeys.set(`${address}:${id}`, {});
+    const nftAssets = await mapLimit([...nftKeys.entries()], 8, ([key, nftMeta]) => {
+      const [address, id] = key.split(":");
+      return nftAsset(chainId, safe, address, BigInt(id), nftMeta);
+    });
+    assets.push(...nftAssets.filter(Boolean));
+
+    return { assets: finalizeAssets(assets), warnings, dhedgePools: dhedge.total };
+  }
+
+  async function onSafeAddManual() {
+    const out = $("safeManualResult");
+    try {
+      const scan = state.safeScan;
+      if (!scan) throw new Error("Scan the Safe first.");
+      const token = requireAddress($("safeManualToken").value, "Token");
+      const idText = $("safeManualId").value.trim();
+      const asset = idText ? await nftAsset(scan.chainId, scan.safe, token, BigInt(idText)) : await erc20Asset(scan.chainId, scan.safe, token);
+      if (!asset) throw new Error("The Safe holds none of this asset on this network.");
+      if (scan.assets.some((a) => eq(a.token, asset.token) && String(a.tokenId ?? "") === String(asset.tokenId ?? ""))) throw new Error("Already in the list.");
+      asset.selected = true;
+      asset.keepScam = true; // the user added this explicitly
+      scan.assets.push(asset);
+      finalizeAssets(scan.assets);
+      renderSafeAssets();
+      out.replaceChildren(h("span", { class: "result ok" }, `Added ${asset.symbol}.`));
+    } catch (e) {
+      out.replaceChildren(h("span", { class: "result err" }, `✗ ${decodeError(e)}`));
+    }
+  }
+
+  function drainCall(asset, safe, dest) {
+    if (asset.kind === "native") return { to: dest, value: asset.amount, data: "0x" };
+    if (asset.kind === "erc20") return { to: asset.token, value: 0n, data: TOKEN_IFACE.encodeFunctionData("transfer", [dest, asset.amount]) };
+    if (asset.kind === "erc721") return { to: asset.token, value: 0n, data: NFT_IFACE.encodeFunctionData("safeTransferFrom(address,address,uint256)", [safe, dest, asset.tokenId]) };
+    return { to: asset.token, value: 0n, data: NFT_IFACE.encodeFunctionData("safeTransferFrom(address,address,uint256,uint256,bytes)", [safe, dest, asset.tokenId, asset.amount, "0x"]) };
+  }
+
+  function assetAmount(a) {
+    if (a.kind === "erc721") return `#${a.tokenId.toString().length > 12 ? `${a.tokenId.toString().slice(0, 10)}…` : a.tokenId}`;
+    if (a.kind === "erc1155") return `${a.amount} × #${a.tokenId.toString().length > 12 ? `${a.tokenId.toString().slice(0, 10)}…` : a.tokenId}`;
+    return fmt(a.amount, a.decimals, 6);
+  }
+
+  const assetUsd = (a) => (a.rate && (a.kind === "native" || a.kind === "erc20") ? Number(ethers.formatUnits(a.amount, a.decimals)) * a.rate : null);
+  const usd = (x) => `$${x.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+
+  function typeBadge(a) {
+    if (a.kind === "native") return badge("info", "Native");
+    if (a.dhedge) return badge("ok", "dHEDGE vault");
+    if (a.kind === "erc20") return badge("info", "ERC-20");
+    if (a.kind === "erc1155") return badge("info", "ERC-1155");
+    return badge("info", a.position ? `NFT · ${a.position}` : "ERC-721");
+  }
+
+  // Scam assets stay out of the list (and the drain) unless the user opts to show them.
+  const isVisibleAsset = (a) => !a.scam || a.keepScam || $("safeShowScam").checked;
+
+  const flagNodes = (a) => [...a.flags.map((f) => badge("warn", f)), a.prep ? badge("info", "managed lock: unlocked first") : null].filter(Boolean);
+
+  function renderSafeAssets() {
+    const scan = state.safeScan;
+    const card = $("safeAssetsCard");
+    card.classList.toggle("hidden", !scan);
+    $("safeDrainCard").classList.toggle("hidden", !scan || !scan.assets.length);
+    if (!scan) return;
+    const scamCount = scan.assets.filter((a) => a.scam && !a.keepScam).length;
+    $("safeScamLabel").textContent = `Show ${scamCount} hidden scam asset${scamCount === 1 ? "" : "s"}`;
+    $("safeScamToggle").classList.toggle("hidden", !scamCount);
+    const visible = scan.assets.filter(isVisibleAsset);
+    const selected = scan.assets.filter((a) => a.selected);
+    const total = selected.reduce((sum, a) => sum + (assetUsd(a) || 0), 0);
+    $("safeSelCount").textContent = `${selected.length} / ${visible.length} selected${total ? ` · ≈ ${usd(total)}` : ""}`;
+    const head = h("tr", {}, ...["", "Asset", "Type", "Amount", "Est. value", "Flags", "Simulation"].map((t) => h("th", {}, t)));
+    const rows = visible.map((a) => {
+      const box = h("input", { type: "checkbox", "aria-label": `Drain ${a.symbol}`, onchange: (e) => { a.selected = e.target.checked; renderSafeAssets(); } });
+      box.checked = a.selected;
+      const value = assetUsd(a);
+      return h(
+        "tr",
+        { class: a.selected ? "" : "muted-row" },
+        h("td", {}, box),
+        h("td", {}, h("div", {}, a.token ? chainLink(scan.chainId, a.token, a.symbol.slice(0, 32)) : a.symbol), a.name ? h("div", { class: "muted" }, a.name.slice(0, 48)) : null),
+        h("td", {}, typeBadge(a)),
+        h("td", { class: "mono" }, assetAmount(a)),
+        h("td", {}, value == null ? "–" : usd(value)),
+        h("td", {}, flagNodes(a).length ? flagNodes(a) : "–"),
+        h("td", {}, a.sim == null ? "–" : a.sim.ok ? badge("ok", "OK") : h("span", { class: "result err" }, a.sim.reason.slice(0, 80))),
+      );
+    });
+    $("safeAssetsTable").replaceChildren(h("thead", {}, head), h("tbody", {}, rows));
+  }
+
+  async function onSafeScan() {
+    const info = $("safeInfo");
+    try {
+      const chainId = Number($("safeNetwork").value);
+      const safe = requireAddress($("safeAddress").value, "Safe address");
+      info.replaceChildren(h("p", { class: "muted" }, "Connecting to networks…"));
+      await safeCall(state.ready);
+      const provider = providerFor(chainId);
+      if (!provider) throw new Error(state.networkErrors[chainId] || `${networkFor(chainId).chainName} RPC unavailable.`);
+      info.replaceChildren(h("p", { class: "muted" }, `Scanning ${networkFor(chainId).chainName}…`));
+      state.safeScan = null;
+      renderSafeAssets();
+      const sc = new ethers.Contract(safe, SAFE_ABI, provider);
+      const [code, threshold, owners, nonce, version] = await Promise.all([provider.getCode(safe), safeCall(sc.getThreshold()), safeCall(sc.getOwners(), []), safeCall(sc.nonce()), safeCall(sc.VERSION())]);
+      if (code === "0x") throw new Error(`No Safe deployed at ${safe} on ${networkFor(chainId).chainName}.`);
+      if (threshold == null) throw new Error(`${safe} is not a Safe on ${networkFor(chainId).chainName}.`);
+      const { assets, warnings, dhedgePools } = await scanSafe(chainId, safe);
+      state.safeScan = { chainId, safe, assets };
+      info.replaceChildren(
+        kv([
+          ["Safe", chainLink(chainId, safe, safe)],
+          ["Signers", `${threshold} of ${owners.length}${version ? ` · Safe v${version}` : ""} · nonce ${nonce}`],
+          ["Found", `${assets.length} asset(s) with a live balance · ${assets.filter((a) => a.dhedge).length} dHEDGE (checked all ${dhedgePools} pools) · ${assets.filter((a) => a.kind === "erc721" || a.kind === "erc1155").length} NFT/position · ${assets.filter((a) => a.scam).length} scam hidden`],
+          ["Open in Safe", ext(`https://app.safe.global/home?safe=${networkFor(chainId).safeNetwork}:${safe}`, "Safe app")],
+        ]),
+        ...warnings.map((w) => h("p", { class: "result warn" }, `⚠ ${w}`)),
+      );
+      $("safeDrainResult").replaceChildren();
+      renderSafeAssets();
+    } catch (e) {
+      info.replaceChildren(h("p", { class: "result err" }, `✗ ${decodeError(e)}`));
+    }
+  }
+
+  function drainPlan() {
+    const scan = state.safeScan;
+    if (!scan) throw new Error("Scan the Safe first.");
+    const dest = requireAddress($("safeDestination").value, "Destination wallet");
+    if (eq(dest, scan.safe)) throw new Error("Destination is the Safe itself.");
+    const selected = scan.assets.filter((a) => a.selected);
+    if (!selected.length) throw new Error("Nothing selected.");
+    const assetCalls = (a) => [...(a.prep || []).map((p) => ({ asset: a, ...p })), { asset: a, ...drainCall(a, scan.safe, dest) }];
+    // Keep each asset's unlock + transfer together and pack assets into the fewest batches under the gas budget.
+    const parts = [];
+    let current = [];
+    let used = 0n;
+    for (const a of selected) {
+      const gas = a.gas || DEFAULT_CALL_GAS * BigInt((a.prep?.length || 0) + 1);
+      if (current.length && used + gas > DRAIN_GAS_BUDGET) {
+        parts.push(current);
+        current = [];
+        used = 0n;
+      }
+      current.push(...assetCalls(a));
+      used += gas;
+    }
+    if (current.length) parts.push(current);
+    return { scan, dest, selected, parts, calls: parts.flat() };
+  }
+
+  async function onSafeSimulate() {
+    const out = $("safeDrainResult");
+    try {
+      const { scan, dest, selected } = drainPlan();
+      const provider = providerFor(scan.chainId);
+      out.replaceChildren(h("p", { class: "muted" }, `Simulating ${selected.length} asset(s) as the Safe…`));
+      await mapLimit(selected, 5, async (a) => {
+        try {
+          let gas = 0n;
+          for (const p of a.prep || []) {
+            await provider.call({ from: scan.safe, to: p.to, data: p.data, value: p.value });
+            gas += await provider.estimateGas({ from: scan.safe, to: p.to, data: p.data, value: p.value });
+          }
+          const c = drainCall(a, scan.safe, dest);
+          if (a.prep?.length) {
+            // The transfer only succeeds after the unlock, so it cannot be simulated in isolation.
+            gas += 150_000n;
+          } else {
+            await provider.call({ from: scan.safe, to: c.to, data: c.data, value: c.value });
+            gas += await safeCall(provider.estimateGas({ from: scan.safe, to: c.to, data: c.data, value: c.value }), DEFAULT_CALL_GAS);
+          }
+          a.gas = gas;
+          a.sim = { ok: true };
+        } catch (e) {
+          a.sim = { ok: false, reason: decodeError(e) };
+          a.selected = false;
+        }
+      });
+      const failed = selected.filter((a) => !a.sim.ok).length;
+      renderSafeAssets();
+      const parts = failed < selected.length ? drainPlan().parts.length : 0;
+      out.replaceChildren(...[
+        h("p", { class: `result ${failed ? "warn" : "ok"}` }, failed ? `${selected.length - failed} OK · ${failed} would revert and were unselected so the batch can execute.` : `All ${selected.length} assets simulate OK as the Safe.`),
+        parts > 1 ? h("p", { class: "result warn" }, `⚠ The selected assets need ~${(Number(selected.filter((a) => a.sim.ok).reduce((s, a) => s + a.gas, 0n)) / 1e6).toFixed(1)}M gas, more than one transaction allows, so the export is split into ${parts} Safe transactions.`) : null,
+      ].filter(Boolean));
+    } catch (e) {
+      out.replaceChildren(h("p", { class: "result err" }, `✗ ${e.message}`));
+    }
+  }
+
+  function drainSummary({ scan, dest, selected }) {
+    const total = selected.reduce((sum, a) => sum + (assetUsd(a) || 0), 0);
+    return `Drain ${selected.length} asset(s) from the ${networkFor(scan.chainId).chainName} Safe ${scan.safe} to ${dest}${total ? ` (≈ ${usd(total)} priced)` : ""}.`;
+  }
+
+  function onSafeExport() {
+    const out = $("safeDrainResult");
+    try {
+      const plan = drainPlan();
+      const chain = networkFor(plan.scan.chainId).chainName;
+      const unsimulated = plan.selected.filter((a) => !a.sim?.ok).length;
+      const split = plan.parts.length > 1 ? `The gas needed exceeds one transaction, so this downloads ${plan.parts.length} files (execute them in order).\n\n` : "";
+      if (!window.confirm(`${drainSummary(plan)}\n\n${split}${unsimulated ? `${unsimulated} selected asset(s) are not simulated yet.\n\n` : ""}Download the Safe Transaction Builder file?`)) return;
+      const stamp = Date.now();
+      plan.parts.forEach((part, i) => {
+        const suffix = plan.parts.length > 1 ? ` (part ${i + 1} of ${plan.parts.length})` : "";
+        const payload = {
+          version: "1.0",
+          chainId: String(plan.scan.chainId),
+          createdAt: stamp,
+          meta: {
+            name: `DAO Safe drain ${chain} ${new Date().toISOString().slice(0, 10)}${suffix}`,
+            description: `${drainSummary(plan)}${suffix}`.slice(0, 500),
+            txBuilderVersion: "1.16.5",
+            createdFromSafeAddress: plan.scan.safe,
+            createdFromOwnerAddress: "",
+          },
+          transactions: part.map((c) => ({ to: c.to, value: c.value.toString(), data: c.data, contractMethod: null, contractInputsValues: null })),
+        };
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+        const a = h("a", { href: URL.createObjectURL(blob), download: `dao-safe-drain-${chain.toLowerCase()}-${stamp}${plan.parts.length > 1 ? `-part${i + 1}of${plan.parts.length}` : ""}.json` });
+        document.body.append(a);
+        a.click();
+        a.remove();
+      });
+      out.replaceChildren(h("p", { class: "result ok" }, `Downloaded ${plan.parts.length === 1 ? `one ${plan.calls.length}-call Safe transaction` : `${plan.parts.length} Safe transactions (${plan.calls.length} calls)`}. In the Safe app (${chain}): Apps → Transaction Builder → drop the file → Create batch → Simulate → Send.`));
+    } catch (e) {
+      out.replaceChildren(h("p", { class: "result err" }, `✗ ${e.message}`));
+    }
+  }
+
+  function onSafeAddBatch() {
+    const out = $("safeDrainResult");
+    try {
+      const plan = drainPlan();
+      plan.calls.forEach((c) => addToBatch({ label: c.to === c.asset.token || c.asset.kind === "native" ? `DAO Safe drain: ${c.asset.symbol} ${assetAmount(c.asset)} → ${short(plan.dest)}` : `DAO Safe drain: unlock ${c.asset.symbol} ${assetAmount(c.asset)} from managed veNFT`, to: c.to, data: c.data, value: c.value, sender: `Safe ${short(plan.scan.safe)}`, chainId: plan.scan.chainId }));
+      out.replaceChildren(h("p", { class: "result ok" }, `Added ${plan.calls.length} call(s) to the ${networkFor(plan.scan.chainId).chainName} batch.`));
+    } catch (e) {
+      out.replaceChildren(h("p", { class: "result err" }, `✗ ${e.message}`));
+    }
+  }
+
+  function setSafeSelection(mode) {
+    if (!state.safeScan) return;
+    state.safeScan.assets.forEach((a) => {
+      if (!isVisibleAsset(a)) a.selected = false;
+      else a.selected = mode === "all" || (mode === "clean" && !a.flags.length && a.sim?.ok !== false);
+    });
+    renderSafeAssets();
+  }
+
   // ---------- wiring ----------
 
   const moduleDefaults = {
@@ -1494,6 +2059,7 @@
     uniswap: "v3",
     staking: "staking",
     assets: "assets",
+    safe: "safe-drain",
   };
 
   function activateTab(tabButton) {
@@ -1544,10 +2110,31 @@
       if (state.vaults.length) renderRoles();
     });
     $("refresh").addEventListener("click", refresh);
+    $("refreshBurn").addEventListener("click", () => loadBurn().catch((e) => $("burnSummary").replaceChildren(h("p", { class: "result err" }, decodeError(e)))));
+    $("burnSlider").addEventListener("input", onBurnSlider);
+    $("burnAmount").addEventListener("input", onBurnAmountInput);
+    $("burnSource").addEventListener("change", () => { $("burnAmount").value = ""; $("burnSlider").value = "0"; $("burnTx").replaceChildren(); updateBurnHint(); });
+    $("burnMax").addEventListener("click", () => { $("burnSlider").value = "100"; onBurnSlider(); });
+    $("buildBurn").addEventListener("click", () => showTx("burnTx", buildBurn));
     $("refreshStaking").addEventListener("click", () => loadStaking().catch((e) => $("stakingSummary").replaceChildren(h("p", { class: "result err" }, decodeError(e)))));
     $("refreshV3").addEventListener("click", () => loadV3().catch((e) => $("v3Table").replaceChildren(h("tbody", {}, h("tr", {}, h("td", { colspan: "7" }, decodeError(e)))))));
     $("refreshAssets").addEventListener("click", () => loadAssets().catch((e) => $("assetsGrid").replaceChildren(h("p", { class: "result err" }, decodeError(e)))));
     $("scanV3").addEventListener("click", onScanV3);
+    $("safeNetwork").replaceChildren(...[10, 8453, 1, 42161, 137].map((id) => h("option", { value: String(id) }, networkFor(id).chainName)));
+    $("safeAddress").value = CFG.dao;
+    $("safeNetwork").addEventListener("change", () => { state.safeScan = null; renderSafeAssets(); $("safeInfo").replaceChildren(); $("safeDrainResult").replaceChildren(); });
+    $("safeScan").addEventListener("click", onSafeScan);
+    $("safeSimulate").addEventListener("click", onSafeSimulate);
+    $("safeExport").addEventListener("click", onSafeExport);
+    $("safeAddBatch").addEventListener("click", onSafeAddBatch);
+    $("safeSelectAll").addEventListener("click", () => setSafeSelection("all"));
+    $("safeSelectClean").addEventListener("click", () => setSafeSelection("clean"));
+    $("safeShowScam").addEventListener("change", () => {
+      state.safeScan?.assets.forEach((a) => { if (!isVisibleAsset(a)) a.selected = false; });
+      renderSafeAssets();
+    });
+    $("safeSelectNone").addEventListener("click", () => setSafeSelection("none"));
+    $("safeManualAdd").addEventListener("click", onSafeAddManual);
     $("buildStakingDeposit").addEventListener("click", () => showTx("stakingTx", buildStakingDeposit));
     $("buildStakingWithdrawRewards").addEventListener("click", () => showTx("stakingTx", () => buildStakingOperation("withdrawRewards", "stakingRewardAmount", "withdraw rewards")));
     $("buildStakingWithdrawPenalty").addEventListener("click", () => showTx("stakingTx", () => buildStakingOperation("withdrawPenalty", "stakingPenaltyAmount", "withdraw penalty")));
@@ -1600,6 +2187,7 @@
     }
     await Promise.all([
       loadStaking().catch((e) => $("stakingSummary").replaceChildren(h("p", { class: "result err" }, decodeError(e)))),
+      loadBurn().catch((e) => $("burnSummary").replaceChildren(h("p", { class: "result err" }, decodeError(e)))),
       loadV3().catch((e) => $("v3Table").replaceChildren(h("tbody", {}, h("tr", {}, h("td", { colspan: "7" }, decodeError(e)))))),
       loadAssets().catch((e) => $("assetsGrid").replaceChildren(h("p", { class: "result err" }, decodeError(e)))),
     ]);
@@ -1610,7 +2198,8 @@
     wire();
     saveBatch();
     try {
-      await initRead();
+      state.ready = initRead();
+      await state.ready;
     } catch (e) {
       notice("err", h("div", {}, e.message));
       return;
