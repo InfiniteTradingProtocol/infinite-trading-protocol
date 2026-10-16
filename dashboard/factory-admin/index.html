@@ -2,7 +2,7 @@
 <!--
   Infinite Trading Administration Dashboard (static, no build step, no secrets).
   Run locally so wallet extensions can inject:
-    cd dashboard/factory-admin && python3 -m http.server 8765 --bind 127.0.0.1
+    cd dashboard/factory-admin && python3 serve.py
   then open http://127.0.0.1:8765/
 -->
 <html lang="en">
@@ -14,8 +14,9 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.4/ethers.umd.min.js"
           integrity="sha384-6Zl0Pc8zjSz8KvmNeXRvUQgY4ryFb+BwDvKCmLYcBME0joAaru491tQgi9B7zsMM"
           crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-  <script src="config.js?v=11"></script>
-  <script src="app.js?v=17" defer></script>
+  <script src="config.js?v=12"></script>
+  <script src="deployment.js?v=1" defer></script>
+  <script src="app.js?v=18" defer></script>
 </head>
 <body>
   <header class="topbar">
@@ -41,6 +42,7 @@
   <nav class="modules" id="modules" aria-label="Contract families and global tools">
     <button data-module="velodrome" class="active">Velodrome Auto Compounder</button>
     <button data-module="uniswap">Uniswap V3 Auto Compounders</button>
+    <button data-module="uniswap-deploy">Uniswap Deploy</button>
     <button data-module="staking">ITP Staking</button>
     <button data-module="assets">Assets</button>
     <button data-module="safe">DAO Safe</button>
@@ -54,6 +56,7 @@
     <button data-module="velodrome" data-tab="create">Create vault</button>
     <button data-module="uniswap" data-tab="v3">Vaults</button>
     <button data-module="uniswap" data-tab="v3-scan">Scans</button>
+    <button data-module="uniswap-deploy" data-tab="deploy">Deploy V3 / V4</button>
     <button data-module="staking" data-tab="staking">Overview &amp; operations</button>
     <button data-module="staking" data-tab="itp-burn">Burn ITP</button>
     <button data-module="assets" data-tab="assets">Token monitor</button>
@@ -184,11 +187,62 @@
         <div class="row between">
           <div>
             <h3>Scan compounder balances</h3>
-            <p class="muted">Find idle token balances held by the registered V3 vaults and queue owner recovery calls.</p>
+            <p class="muted">Find idle token balances held by registered V3 vaults across configured chains and queue owner recovery calls.</p>
           </div>
           <button id="scanV3" class="btn">Scan</button>
         </div>
         <div id="v3ScanResult"></div>
+      </div>
+    </section>
+
+    <section id="tab-deploy" class="tab" data-module="uniswap-deploy">
+      <div class="card">
+        <h3>Deploy a Uniswap compounder</h3>
+        <div class="form two">
+          <label>Network <select id="deploymentNetwork"></select></label>
+          <label>Version <select id="deploymentVersion"><option value="v3">Uniswap V3</option><option value="v4">Uniswap V4</option></select></label>
+          <label>Read RPC URL <input id="deploymentRpc" type="url" placeholder="https://…"></label>
+          <label>Vault label <input id="deploymentName" placeholder="Token A / Token B"></label>
+        </div>
+        <div id="customNetworkFields" class="form two hidden">
+          <label>Custom chain ID <input id="customChainId" inputmode="numeric" placeholder="e.g. 8453"></label>
+          <label>Custom chain name <input id="customChainName" placeholder="Chain name"></label>
+          <label>Explorer base URL <input id="customExplorer" type="url" placeholder="https://explorer.example"></label>
+          <button id="registerCustomNetwork" class="btn">Add network</button>
+        </div>
+        <div class="form two">
+          <label>Token 0 <input id="deploymentToken0" placeholder="0x…"></label>
+          <label>Token 1 <input id="deploymentToken1" placeholder="0x…"></label>
+          <label>Initial keeper <input id="deploymentKeeper" placeholder="0x…"></label>
+          <label>DAO / owner <input id="deploymentDao" placeholder="0x…"></label>
+        </div>
+        <div id="deploymentV3Fields" class="form two">
+          <label>V3 pool <input id="deploymentV3Pool" placeholder="0x…"></label>
+          <label>Fee tier <input id="deploymentV3Fee" inputmode="numeric" placeholder="e.g. 500, 3000, 10000"></label>
+          <label>Position manager <input id="deploymentV3Manager" placeholder="0x…"></label>
+          <label>Swap router <input id="deploymentV3Router" placeholder="0x…"></label>
+        </div>
+        <div id="deploymentV4Fields" class="form two hidden">
+          <label>Pool fee <input id="deploymentV4Fee" inputmode="numeric" placeholder="0 for dynamic fee"></label>
+          <label>Tick spacing <input id="deploymentV4TickSpacing" inputmode="numeric" placeholder="e.g. 60"></label>
+          <label>Hooks <input id="deploymentV4Hooks" value="0x0000000000000000000000000000000000000000"></label>
+          <label>Position manager <input id="deploymentV4Manager" placeholder="0x…"></label>
+          <label>Universal router <input id="deploymentV4Router" placeholder="0x…"></label>
+          <label>State view <input id="deploymentV4StateView" placeholder="0x…"></label>
+          <label>Permit2 <input id="deploymentV4Permit2" placeholder="0x…"></label>
+          <label>Second keeper (optional) <input id="deploymentV4Keeper2" placeholder="0x…"></label>
+        </div>
+        <div class="row">
+          <button id="validateDeployment" class="btn">Validate configuration</button>
+          <button id="deployCompounder" class="btn primary">Deploy</button>
+        </div>
+        <label class="row"><input id="deploymentAcknowledged" type="checkbox"> I verified these chain-specific adapter addresses, pool settings, and any V4 hook.</label>
+        <p class="muted">Validation confirms on-chain code and pool configuration; it does not audit adapter behavior or hook permissions.</p>
+        <div id="deploymentStatus" class="result" role="status" aria-live="polite"></div>
+      </div>
+      <div class="card">
+        <div class="row between"><h3>Tracked deployments</h3><button id="refreshDeployments" class="btn">Refresh</button></div>
+        <div class="table-wrap"><table id="deploymentTable"></table></div>
       </div>
     </section>
 

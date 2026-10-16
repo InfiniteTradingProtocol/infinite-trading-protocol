@@ -151,7 +151,6 @@
     "function setMaxSlippage(uint16)",
     "function transferOwnership(address)",
     "function rescueTokens(address,uint256)",
-    "function upgradeToAndCall(address,bytes)",
   ];
   const STSATO_ABI = [
     "function owner() view returns (address)",
@@ -212,6 +211,10 @@
   const badge = (cls, text) => h("span", { class: `badge ${cls}` }, text);
   const networkFor = (chainId = CFG.chainId) => CFG.networks[chainId];
   const providerFor = (chainId = CFG.chainId) => state.providers[chainId];
+  const chainAddrLink = (chainId, address, text = address) => {
+    const explorer = networkFor(chainId)?.explorer;
+    return explorer ? ext(`${explorer}/address/${address}`, text) : h("span", { class: "mono" }, text);
+  };
 
   function labelFor(a) {
     if (!a) return "";
@@ -315,7 +318,7 @@
             chainName: network.chainName,
             nativeCurrency: { name: network.nativeSymbol || "Ether", symbol: network.nativeSymbol || "ETH", decimals: 18 },
             rpcUrls: [network.rpcUrls[0]],
-            blockExplorerUrls: [network.explorer],
+            ...(network.explorer ? { blockExplorerUrls: [network.explorer] } : {}),
           }],
         });
       }
@@ -789,7 +792,14 @@
     const values = await Promise.all(calls.map((name) => safeCall(vault[name](), null)));
     const providerAddress = [...new Set([CFG.dao, state.account, "0xE6C312d661bE5e3eC022e2F18e084713A434A340", "0x233EC2735d58698eFC4d5f24A521AA251252f0C0"].filter(Boolean))];
     const keepers = await Promise.all(providerAddress.map(async (address) => (await safeCall(vault.isKeeper(address), false)) ? address : null));
-    const implementation = await safeCall(provider.getStorage(def.address, IMPL_SLOT), null);
+    const implementationSlot = await safeCall(provider.getStorage(def.address, IMPL_SLOT), null);
+    const implementationAddress = implementationSlot && implementationSlot !== `0x${"0".repeat(64)}`
+      ? ethers.getAddress(`0x${implementationSlot.slice(-40)}`)
+      : null;
+    const implementationUuid = implementationAddress
+      ? await safeCall(new ethers.Contract(implementationAddress, ["function proxiableUUID() view returns (bytes32)"], provider).proxiableUUID(), null)
+      : null;
+    const implementation = implementationUuid === IMPL_SLOT ? implementationAddress : null;
     const [symbol0, symbol1] = await Promise.all([values[2], values[3]].map(async (address, i) => {
       if (!address) return i === 0 ? "token0" : "token1";
       return safeCall(new ethers.Contract(address, ERC20_ABI, provider).symbol(), short(address));
@@ -800,7 +810,7 @@
       owner: values[0], dao: values[1], token0: values[2] || def.token0, token1: values[3] || def.token1,
       pool: values[4], poolFee: values[5], tokenId: values[6], totalShares: values[7], totalLiquidity: values[8],
       pendingFees: values[9], maxSlippageBps: values[10], twapPeriod: values[11], keepers: keepers.filter(Boolean),
-      implementation: implementation && implementation !== `0x${"0".repeat(64)}` ? ethers.getAddress(`0x${implementation.slice(-40)}`) : null,
+      implementation,
       symbols: [symbol0, symbol1],
     };
   }
@@ -820,8 +830,8 @@
       class: `clickable ${state.selectedV3 === v.address ? "selected" : ""}`,
       onclick: () => selectV3Vault(v.address),
     },
-      h("td", {}, h("div", {}, v.name), h("div", { class: "muted mono" }, ext(`${networkFor(v.chainId).explorer}/address/${v.address}`, short(v.address)))),
-      h("td", {}, v.owner ? ext(`${networkFor(v.chainId).explorer}/address/${v.owner}`, labelFor(v.owner)) : "–"),
+      h("td", {}, h("div", {}, v.name), h("div", { class: "muted mono" }, chainAddrLink(v.chainId, v.address, short(v.address)))),
+      h("td", {}, v.owner ? chainAddrLink(v.chainId, v.owner, labelFor(v.owner)) : "–"),
       h("td", {}, v.tokenId == null ? "–" : String(v.tokenId)),
       h("td", {}, v.totalShares == null ? "–" : fmt(v.totalShares)),
       h("td", {}, v.totalLiquidity == null ? "–" : String(v.totalLiquidity)),
@@ -846,16 +856,16 @@
     const input = (id, value = "", placeholder = "") => h("input", { id, value: value ?? "", placeholder });
     const slot = () => h("div", {});
     const controls = {};
-    for (const id of ["compound", "keeper", "keeperRemove", "pool", "poolFee", "slippage", "twap", "dao", "newOwner", "rescueToken", "rescueAmount", "newImpl"]) controls[id] = slot();
+    for (const id of ["compound", "keeper", "keeperRemove", "pool", "poolFee", "slippage", "twap", "dao", "newOwner", "rescueToken", "rescueAmount"]) controls[id] = slot();
     const action = (title, body, id, button, build) => h("div", { class: "subcard" }, h("h4", {}, title), body, h("button", { class: "btn", onclick: () => showTx(controls[id], build) }, button), controls[id]);
     const fees = vault.pendingFees ? `${fmt(vault.pendingFees[0], 18, 6)} ${vault.symbols[0]} + ${fmt(vault.pendingFees[1], 18, 6)} ${vault.symbols[1]}` : "Unavailable";
     panel.replaceChildren(
       h("div", { class: "row between" }, h("h3", {}, vault.name), h("button", { class: "btn small", onclick: () => panel.classList.add("hidden") }, "Close")),
       kv([
-        ["Proxy", ext(`${networkFor(vault.chainId).explorer}/address/${vault.address}`, vault.address)],
+        ["Vault", chainAddrLink(vault.chainId, vault.address)],
         ["Owner / DAO", `${vault.owner ? labelFor(vault.owner) : "unavailable"} / ${vault.dao ? labelFor(vault.dao) : "unavailable"}`],
-        ["Implementation", vault.implementation ? ext(`${networkFor(vault.chainId).explorer}/address/${vault.implementation}`, vault.implementation) : "Unavailable"],
-        ["Pool", vault.pool ? ext(`${networkFor(vault.chainId).explorer}/address/${vault.pool}`, vault.pool) : "Unavailable"],
+        ["Implementation", vault.implementation ? chainAddrLink(vault.chainId, vault.implementation) : "Direct deployment or non-UUPS proxy"],
+        ["Pool", vault.pool ? chainAddrLink(vault.chainId, vault.pool) : "Unavailable"],
         ["Tokens", `${vault.symbols?.[0] || "token0"} / ${vault.symbols?.[1] || "token1"}`],
         ["Position / fee tier", `${vault.tokenId ?? "–"} / ${vault.poolFee ?? "–"}`],
         ["Shares / liquidity", `${vault.totalShares == null ? "–" : fmt(vault.totalShares)} / ${vault.totalLiquidity ?? "–"}`],
@@ -881,7 +891,7 @@
           return out;
         }),
         action("Recover token balance", h("div", { class: "form two" }, h("label", {}, "Token", input("rescueToken", "", "0x…")), h("label", {}, "Raw amount", input("rescueAmount", "", "uint256"))), "rescueToken", "Build recovery", () => v3Tx(vault, "rescueTokens", [requireAddress($("rescueToken").value, "Token"), BigInt($("rescueAmount").value)], "recover token")),
-        action("Upgrade implementation", h("div", { class: "form" }, h("label", {}, "New implementation", input("newImpl", "", "0x…"))), "newImpl", "Build UUPS upgrade", () => v3Tx(vault, "upgradeToAndCall", [requireAddress($("newImpl").value, "Implementation"), "0x"], "upgrade implementation", { warning: "This replaces the vault logic. Confirm storage-layout compatibility before execution.", confirm: `Upgrade ${vault.name} implementation?` })),
+        h("div", { class: "subcard" }, h("h4", {}, "Upgrade"), h("p", { class: "muted" }, "Disabled for V3: the maintained source is constructor-deployed and is not a UUPS implementation. Do not point an existing proxy at it; use a reviewed migration plan instead.")),
       ),
     );
     const summary = panel.querySelector(".kv");
@@ -934,10 +944,10 @@
   }
 
   async function scanV3Balances() {
-    const provider = providerFor(8453);
-    if (!provider) throw new Error(state.networkErrors[8453] || "Base RPC unavailable.");
     const found = [];
     await Promise.all(state.v3Vaults.filter((v) => v.available).map(async (vault) => {
+      const provider = providerFor(vault.chainId);
+      if (!provider) throw new Error(state.networkErrors[vault.chainId] || `${networkFor(vault.chainId).chainName} RPC unavailable.`);
       const tokens = [...new Set([vault.token0, vault.token1].filter(Boolean))];
       await Promise.all(tokens.map(async (tokenAddress) => {
         const token = new ethers.Contract(tokenAddress, ERC20_ABI, provider);
@@ -950,7 +960,7 @@
 
   async function onScanV3() {
     const box = $("v3ScanResult");
-    box.replaceChildren(h("p", { class: "muted" }, "Scanning Base compounders…"));
+    box.replaceChildren(h("p", { class: "muted" }, "Scanning registered V3 compounders…"));
     try {
       const found = await scanV3Balances();
       if (!found.length) {
@@ -959,12 +969,12 @@
       }
       const table = h("table", {}, h("thead", {}, h("tr", {}, ...["Vault", "Token", "Balance", "Owner"].map((x) => h("th", {}, x)))), h("tbody", {}, found.map((item) => h("tr", {},
         h("td", {}, item.vault.name),
-        h("td", {}, ext(`${networkFor(8453).explorer}/address/${item.tokenAddress}`, item.symbol)),
+        h("td", {}, chainAddrLink(item.vault.chainId, item.tokenAddress, item.symbol)),
         h("td", {}, fmt(item.balance, item.decimals, 8)),
         h("td", {}, item.vault.owner ? labelFor(item.vault.owner) : "unknown"),
       ))));
       const slot = h("div", {});
-      box.replaceChildren(h("div", { class: "table-wrap" }, table), h("p", { class: "muted" }, "Recovery calls go to each vault owner. Review and simulate the calls before adding them to the Base batch."), h("button", { class: "btn primary", onclick: () => {
+      box.replaceChildren(h("div", { class: "table-wrap" }, table), h("p", { class: "muted" }, "Recovery calls go to each vault owner. Review and simulate the calls before adding them to the chain-specific batch."), h("button", { class: "btn primary", onclick: () => {
         found.forEach((item) => addToBatch(v3Tx(item.vault, "rescueTokens", [item.tokenAddress, item.balance], `recover ${fmt(item.balance, item.decimals, 6)} ${item.symbol}`)));
         slot.replaceChildren(h("span", { class: "result ok" }, `Added ${found.length} recovery call(s) to the batch.`));
       } }, `Add ${found.length} recovery calls to batch`), slot);
@@ -2057,6 +2067,7 @@
   const moduleDefaults = {
     velodrome: "overview",
     uniswap: "v3",
+    "uniswap-deploy": "deploy",
     staking: "staking",
     assets: "assets",
     safe: "safe-drain",
@@ -2104,6 +2115,20 @@
     });
     document.querySelectorAll("#tabs button").forEach((button) => button.addEventListener("click", () => activateTab(button)));
     activateModule("velodrome");
+    window.addEventListener("itp:network-added", (event) => {
+      const network = event.detail;
+      if (!network?.chainId || !network?.rpcUrls?.[0]) return;
+      CFG.networks[network.chainId] = network;
+      state.providers[network.chainId] = new ethers.JsonRpcProvider(network.rpcUrls[0], network.chainId, { staticNetwork: true });
+    });
+    window.addEventListener("itp:vault-deployed", (event) => {
+      const deployment = event.detail;
+      if (deployment?.version !== "v3" || !deployment.address) return;
+      if (!CFG.v3Compounders.some((vault) => eq(vault.address, deployment.address))) {
+        CFG.v3Compounders.push({ name: deployment.name, address: deployment.address, token0: deployment.token0, token1: deployment.token1, chainId: deployment.chainId });
+      }
+      loadV3().catch((error) => notice("err", h("div", {}, decodeError(error))));
+    });
     $("connect").addEventListener("click", () => connect().catch((e) => notice("err", h("div", {}, e.message))));
     $("actAs").addEventListener("change", (e) => {
       state.actAs = e.target.value;

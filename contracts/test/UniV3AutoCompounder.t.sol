@@ -132,7 +132,7 @@ contract UniV3AutoCompounderTest is Test {
         console.log("WETH/USDC 500 pool:", pool);
 
         // Deploy vault (token0 = WETH because 0x4200... < 0x8335...)
-        vault = new UniV3AutoCompounder(WETH, USDC, POOL_FEE, pool, KEEPER, DAO);
+        vault = new UniV3AutoCompounder(WETH, USDC, POOL_FEE, pool, KEEPER, DAO, POSITION_MANAGER, SWAP_ROUTER);
 
         // Read current tick and derive a ±2000 tick range aligned to tick spacing
         (, int24 currentTick, , , , , ) = IUniswapV3Pool(pool).slot0();

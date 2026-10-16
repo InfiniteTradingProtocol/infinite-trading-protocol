@@ -109,6 +109,21 @@ window.ITP_CONFIG = {
     { name: "WETH / cbEGGS", address: "0xd248b1e882c4444674d83ef912713113b719f7ce", token0: "0x4200000000000000000000000000000000000006", token1: "0xdDbAbe113c376f51E5817242871879353098c296", chainId: 8453 },
   ],
 
+  uniswapPresets: {
+    8453: {
+      v3: {
+        positionManager: "0x03a520b32C04BF3bEEf7BEb72E919cf822Ed34f1",
+        swapRouter: "0x2626664c2603336E57B271c5C0b26F421741e481",
+      },
+      v4: {
+        positionManager: "0x7C5f5A4bBd8fD63184577525326123B519429bDc",
+        universalRouter: "0x6fF5693b99212Da76ad316178A184AB56D299b43",
+        stateView: "0xA3c0c9b65baD0b08107Aa264b0f3dB444b867A71",
+        permit2: "0x000000000022D473030F116dDEE9F6B43aC78BA3",
+      },
+    },
+  },
+
   stsato: "0xdee7f7a032326148e65ec3068f1c9b29e26b75b3",
   sato: "0x829f4B62EEBE12Af653b4dD4fFc480966F7d7f09",
 

@@ -3,11 +3,10 @@ pragma solidity ^0.8.26;
 
 import {Script} from "forge-std/src/Script.sol";
 import {console} from "forge-std/src/console.sol";
-import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {UniV3AutoCompounder} from "../src/UniV3AutoCompounder.sol";
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  Deploy UniV3AutoCompounder on Base
+//  Deploy a constructor-configured UniV3AutoCompounder on an EVM chain
 //
 //  All parameters are supplied via environment variables so the entire
 //  deployment is a single terminal command.
@@ -20,8 +19,10 @@ import {UniV3AutoCompounder} from "../src/UniV3AutoCompounder.sol";
 //    POOL                   – Uniswap V3 pool address
 //    KEEPER_ADDRESS         – address authorised to call compound()
 //    ITP_DAO                – DAO multisig; receives 1.5% fee & ownership
-//    BASE_RPC_URL           – Base mainnet RPC endpoint
-//    BASE_ETHERSCAN_API_KEY – Basescan API key (only needed for --verify)
+//    POSITION_MANAGER       – chain's Uniswap V3 NonfungiblePositionManager
+//    SWAP_ROUTER            – chain's Uniswap V3 compatible swap router
+//    DEPLOY_RPC_URL          – target chain RPC endpoint
+//    EXPLORER_API_KEY        – explorer API key (only needed for --verify)
 //
 //  ── Common presets (already set in .env) ────────────────────────────────────
 //  WETH/USDC 0.05%:
@@ -32,12 +33,11 @@ import {UniV3AutoCompounder} from "../src/UniV3AutoCompounder.sol";
 //
 //  ── One-line deploy + verify ─────────────────────────────────────────────────
 //    source .env && forge script script/DeployUniV3AutoCompounder.s.sol \
-//      --rpc-url $BASE_RPC_URL --broadcast --verify \
-//      --etherscan-api-key $BASE_ETHERSCAN_API_KEY -vvvv
+//      --rpc-url $DEPLOY_RPC_URL --broadcast -vvvv
 //
 //  ── Dry-run (no broadcast, no gas) ──────────────────────────────────────────
 //    source .env && forge script script/DeployUniV3AutoCompounder.s.sol \
-//      --rpc-url $BASE_RPC_URL -vvvv
+//      --rpc-url $DEPLOY_RPC_URL -vvvv
 // ─────────────────────────────────────────────────────────────────────────────
 
 contract DeployUniV3AutoCompounder is Script {
@@ -47,49 +47,42 @@ contract DeployUniV3AutoCompounder is Script {
         uint256 deployerKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
         address token0      = vm.envAddress("TOKEN0");
         address token1      = vm.envAddress("TOKEN1");
-        uint24  poolFee     = uint24(vm.envUint("POOL_FEE"));
+        uint256 poolFeeValue = vm.envUint("POOL_FEE");
+        require(poolFeeValue <= type(uint24).max, "Pool fee exceeds uint24");
+        uint24  poolFee     = uint24(poolFeeValue);
         address pool        = vm.envAddress("POOL");
         address keeper      = vm.envAddress("KEEPER_ADDRESS");
-        address keeper2     = vm.envAddress("KEEPER_ADDRESS_2");
         address itpDao      = vm.envAddress("ITP_DAO");
+        address positionManager = vm.envAddress("POSITION_MANAGER");
+        address swapRouter      = vm.envAddress("SWAP_ROUTER");
 
         address deployer = vm.addr(deployerKey);
 
-        console.log("=== UniV3AutoCompounder Deployment ===");
+        console.log("=== UniV3AutoCompounder Vault Deployment ===");
         console.log("Deployer:        ", deployer);
         console.log("token0:          ", token0);
         console.log("token1:          ", token1);
         console.log("poolFee:         ", poolFee);
         console.log("pool:            ", pool);
         console.log("Initial keeper:  ", keeper);
-        console.log("Second keeper:   ", keeper2);
+        console.log("Position manager:", positionManager);
+        console.log("Swap router:     ", swapRouter);
         console.log("ITP DAO:         ", itpDao);
         console.log("Fees: 1.5% DAO / 0.5% executor / 98% re-compounded");
 
         vm.startBroadcast(deployerKey);
 
-        // 1. Deploy the logic implementation (constructor disables direct initialization)
-        UniV3AutoCompounder impl = new UniV3AutoCompounder();
-
-        // 2. Encode the initialize() call
-        bytes memory initData = abi.encodeCall(
-            impl.initialize,
-            (token0, token1, poolFee, pool, keeper, itpDao, keeper2)
+        UniV3AutoCompounder vault = new UniV3AutoCompounder(
+            token0, token1, poolFee, pool, keeper, itpDao, positionManager, swapRouter
         );
-
-        // 3. Deploy ERC1967 proxy – calls initialize() atomically
-        ERC1967Proxy proxy = new ERC1967Proxy(address(impl), initData);
-        UniV3AutoCompounder vault = UniV3AutoCompounder(address(proxy));
 
         vm.stopBroadcast();
 
         console.log("--------------------------------------");
-        console.log("Implementation:  ", address(impl));
-        console.log("Proxy (vault):   ", address(vault));
+        console.log("Vault:           ", address(vault));
         console.log("Owner (DAO):     ", vault.owner());
         console.log("DAO address:     ", vault.dao());
         console.log("Initial keeper:  ", keeper);
-        console.log("Second keeper:   ", keeper2);
         console.log("DAO fee bps:     ", vault.DAO_FEE_BPS());
         console.log("Exec fee bps:    ", vault.EXECUTOR_FEE_BPS());
     }

@@ -72,15 +72,22 @@ contract UniV4ShareAccountingTest is Test {
             ? (firstToken, secondToken) : (secondToken, firstToken);
         UniV4AutoCompounder implementation = new UniV4AutoCompounder();
         AccountingPositionManager managerImplementation = new AccountingPositionManager();
-        vm.etch(implementation.POSITION_MANAGER(), address(managerImplementation).code);
-        manager = AccountingPositionManager(implementation.POSITION_MANAGER());
+        AccountingPositionManager routerImplementation = new AccountingPositionManager();
+        AccountingPositionManager stateViewImplementation = new AccountingPositionManager();
+        AccountingPositionManager permit2Implementation = new AccountingPositionManager();
+        address positionManager = address(managerImplementation);
+        address universalRouter = address(routerImplementation);
+        address stateView = address(stateViewImplementation);
+        address permit2 = address(permit2Implementation);
+        manager = managerImplementation;
         vm.store(address(manager), bytes32(0), bytes32(uint256(1)));
-        vm.mockCall(implementation.PERMIT2(), abi.encodeWithSignature("approve(address,address,uint160,uint48)"), bytes(""));
-        vm.mockCall(implementation.STATE_VIEW(), abi.encodeWithSignature("getSlot0(bytes32)"),
+        vm.mockCall(permit2, abi.encodeWithSignature("approve(address,address,uint160,uint48)"), bytes(""));
+        vm.mockCall(stateView, abi.encodeWithSignature("getSlot0(bytes32)"),
             abi.encode(uint160(2 ** 96), int24(0), uint24(0), uint24(500)));
         vault = UniV4AutoCompounder(address(new ERC1967Proxy(address(implementation), abi.encodeCall(
             UniV4AutoCompounder.initialize,
-            (address(token0), address(token1), uint24(500), int24(60), address(0), address(this), address(this), address(0))
+            (address(token0), address(token1), uint24(500), int24(60), address(0), address(this), address(this), address(0),
+                positionManager, universalRouter, stateView, permit2)
         ))));
         token0.mint(FIRST, 1e24);
         token0.mint(SECOND, 1e24);

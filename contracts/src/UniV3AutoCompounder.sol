@@ -233,8 +233,8 @@ library FullMath {
 contract UniV3AutoCompounder {
 
     // ── Constants – Base mainnet ──────────────────────────────────────────────
-    address public constant POSITION_MANAGER = 0x03a520b32C04BF3bEEf7BEb72E919cf822Ed34f1;
-    address public constant SWAP_ROUTER      = 0x2626664c2603336E57B271c5C0b26F421741e481;
+    address public immutable POSITION_MANAGER;
+    address public immutable SWAP_ROUTER;
 
     // ── Immutables set at deployment ──────────────────────────────────────────
     address public immutable token0;   // lower-address token of the pair
@@ -314,11 +314,17 @@ contract UniV3AutoCompounder {
         uint24  _poolFee,
         address _pool,
         address _initialKeeper,
-        address _dao
+        address _dao,
+        address _positionManager,
+        address _swapRouter
     ) {
         require(_token0 < _token1, "token0 must be < token1");
         require(_dao != address(0), "Zero DAO address");
         require(_initialKeeper != address(0), "Zero keeper address");
+        require(_positionManager.code.length > 0, "Invalid position manager");
+        require(_swapRouter.code.length > 0, "Invalid swap router");
+        POSITION_MANAGER = _positionManager;
+        SWAP_ROUTER = _swapRouter;
         token0   = _token0;
         token1   = _token1;
         poolFee  = _poolFee;

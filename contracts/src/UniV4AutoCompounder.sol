@@ -169,10 +169,6 @@ uint8 constant CMD_V4_SWAP = 0x10;
 contract UniV4AutoCompounder is Initializable, UUPSUpgradeable {
 
     // ── Base mainnet V4 contract addresses ───────────────────────────────────
-    address public constant POSITION_MANAGER = 0x7C5f5A4bBd8fD63184577525326123B519429bDc;
-    address public constant UNIVERSAL_ROUTER = 0x6fF5693b99212Da76ad316178A184AB56D299b43;
-    address public constant STATE_VIEW       = 0xA3c0c9b65baD0b08107Aa264b0f3dB444b867A71;
-    address public constant PERMIT2          = 0x000000000022D473030F116dDEE9F6B43aC78BA3;
 
     // ── Fee configuration ─────────────────────────────────────────────────────
     /// @dev 1.5% to DAO, 0.5% to executor, 98% re-added as liquidity (total 2%)
@@ -206,6 +202,11 @@ contract UniV4AutoCompounder is Initializable, UUPSUpgradeable {
     // ── Compound carryover ────────────────────────────────────────────────────
     uint256 public pendingReinvest0;
     uint256 public pendingReinvest1;
+
+    address public POSITION_MANAGER;
+    address public UNIVERSAL_ROUTER;
+    address public STATE_VIEW;
+    address public PERMIT2;
 
     // ── Events ────────────────────────────────────────────────────────────────
     event Deposited(address indexed user, uint256 tokenId, uint256 liquidity, uint256 shares);
@@ -258,11 +259,24 @@ contract UniV4AutoCompounder is Initializable, UUPSUpgradeable {
         address _hooks,
         address _initialKeeper,
         address _dao,
-        address _secondKeeper
+        address _secondKeeper,
+        address _positionManager,
+        address _universalRouter,
+        address _stateView,
+        address _permit2
     ) external initializer {
         require(_token0 < _token1,              "token0 must be < token1");
         require(_dao != address(0),             "Zero DAO address");
         require(_initialKeeper != address(0),   "Zero keeper address");
+        require(_positionManager.code.length > 0, "Invalid position manager");
+        require(_universalRouter.code.length > 0, "Invalid universal router");
+        require(_stateView.code.length > 0, "Invalid state view");
+        require(_permit2.code.length > 0, "Invalid Permit2");
+
+        POSITION_MANAGER = _positionManager;
+        UNIVERSAL_ROUTER = _universalRouter;
+        STATE_VIEW = _stateView;
+        PERMIT2 = _permit2;
 
         token0         = _token0;
         token1         = _token1;
