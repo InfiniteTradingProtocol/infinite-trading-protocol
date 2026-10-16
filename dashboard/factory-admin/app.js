@@ -95,7 +95,7 @@
 
   const fIface = new ethers.Interface(FACTORY_ABI);
   const vIface = new ethers.Interface(VAULT_ABI);
-  const errIface = new ethers.Interface(ERRORS_ABI);
+  let errIface = new ethers.Interface(ERRORS_ABI);
   const mcIface = new ethers.Interface([
     "function aggregate3((address target, bool allowFailure, bytes callData)[] calls) payable returns ((bool success, bytes returnData)[])",
   ]);
@@ -2235,6 +2235,29 @@
       if (accounts[0]) await connect().catch(() => {});
     }
   }
+
+  // Shared surface for self-contained modules loaded after this file (e.g. yield-vault.js).
+  window.ITP_ADMIN = {
+    h,
+    txBox,
+    showTx,
+    addToBatch,
+    decodeError,
+    simulate,
+    sendTx,
+    connect,
+    ensureChain,
+    providerFor,
+    networkFor,
+    ready: () => state.ready,
+    account: () => state.account,
+    wallet: () => state.wallet,
+    registerErrors(fragments) {
+      const known = new Set(errIface.fragments.map((f) => f.format("sighash")));
+      const extra = fragments.filter((f) => !known.has(ethers.ErrorFragment.from(f).format("sighash")));
+      if (extra.length) errIface = new ethers.Interface([...errIface.fragments, ...extra]);
+    },
+  };
 
   main();
 })();

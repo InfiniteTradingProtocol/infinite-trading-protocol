@@ -138,6 +138,48 @@ window.ITP_CONFIG = {
     { label: "v1 – original", address: "0x65c1D7Ae1F840f288c2CCD9a5871fca6497a65f2" },
   ],
 
+  // Infinite Trading USD Yield vault (Morpho Vault V2 + InfiniteTradingRegistry + InfiniteYieldAllocator) on Base.
+  // Fill `deployment` after the dashboard deploy wizard finishes (it also prints this block).
+  yieldVault: {
+    chainId: 8453,
+    deployment: {
+      vault: "",
+      registry: "",
+      allocator: "",
+      bootstrapper: "",
+      deployBlock: 0,
+    },
+    external: {
+      usdc: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      vaultFactory: "0x4501125508079A99ebBebCE205DeC9593C2b5857",
+      morphoVaultV1AdapterFactory: "0xF42D9c36b34c9c2CF3Bc30eD2a52a90eEB604642",
+      aavePool: "0xA238Dd80C259a72e81d7e4664a9801593F98d1c5",
+      fluidLendingResolver: "0x48D32f49aFeAEC7AE66ad7B9264f446fc11a1569",
+    },
+    defaults: {
+      name: "Infinite Trading USD Yield",
+      symbol: "itUSDY",
+      executors: ["0xE6C312d661bE5e3eC022e2F18e084713A434A340", "0x233EC2735d58698eFC4d5f24A521AA251252f0C0"],
+      sentinels: ["0xb5dB6e5a301E595B76F40319896a8dbDc277CEfB", "0xE6C312d661bE5e3eC022e2F18e084713A434A340"],
+      performanceFeePct: 10,
+      minApyDeltaPct: 0.7,
+      cooldownMinutes: 60,
+      timelockDays: 3,
+      registryUpgradeDelayDays: 3,
+      maxRateAprPct: 50,
+      seedUsdc: 1,
+      // kind: 0 = ERC-4626 (MorphoVaultV1Adapter), 1 = Compound v3 (CompoundV3Adapter). reader: key of the reader to use.
+      integrations: [
+        { name: "Aave v3", kind: 0, target: "0xC768c589647798a6EE01A91FdE98EF2ed046DBD6", reader: "aave" },
+        { name: "Compound v3", kind: 1, target: "0xb125E6687d4313864e53df431d5425969c15Eb2F", reader: "comet" },
+        { name: "Fluid", kind: 0, target: "0xf42f5795D9ac7e9D757dB633D693cD548Cfd9169", reader: "fluid" },
+        { name: "Gauntlet USDC Prime", kind: 0, target: "0xeE8F4eC5672F09119b96Ab6fB59C27E1b7e44b61", reader: "metamorpho" },
+        { name: "Spark USDC", kind: 0, target: "0x7BfA7C4f149E7415b73bdeDfe609237e29CBF34A", reader: "metamorpho" },
+        { name: "Steakhouse Prime USDC", kind: 0, target: "0xBEEFE94c8aD530842bfE7d8B397938fFc1cb83b2", reader: "metamorpho" },
+      ],
+    },
+  },
+
   explorer: "https://optimistic.etherscan.io",
   blockscout: "https://optimism.blockscout.com",
   safeApp: "https://app.safe.global/home?safe=oeth:",

@@ -171,3 +171,9 @@ footer { text-align: center; color: var(--muted); font-size: 12px; padding: 20px
   main { padding-left: 12px; padding-right: 12px; }
   .wallet { width: 100%; flex-wrap: wrap; }
 }
+
+/* USD Yield vault module */
+#yieldManage .subcard + .subcard { margin-top: 10px; }
+#yieldOverview tr.highlight td { background: rgba(46, 204, 113, .06); }
+#yieldDeployForm label.row { display: flex; gap: 6px; margin: 4px 0; }
+#yieldDeployLog .result { display: block; margin-top: 4px; }

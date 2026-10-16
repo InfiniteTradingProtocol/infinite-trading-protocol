@@ -18,6 +18,21 @@ ARTIFACTS = {
     "/artifacts/v4.json": CONTRACTS / "out/UniV4AutoCompounder.sol/UniV4AutoCompounder.json",
     "/artifacts/proxy.json": CONTRACTS / "out/ERC1967Proxy.sol/ERC1967Proxy.json",
 }
+YIELD_CONTRACTS = {
+    "InfiniteTradingRegistry": "InfiniteTradingRegistry.sol",
+    "InfiniteYieldAllocator": "InfiniteYieldAllocator.sol",
+    "InfiniteYieldAllocatorFactory": "InfiniteYieldAllocatorFactory.sol",
+    "InfiniteYieldBootstrapper": "InfiniteYieldBootstrapper.sol",
+    "CompoundV3AdapterFactory": "CompoundV3AdapterFactory.sol",
+    "AaveV3RateReader": "AaveV3RateReader.sol",
+    "CompoundV3RateReader": "CompoundV3RateReader.sol",
+    "FluidRateReader": "FluidRateReader.sol",
+    "MetaMorphoRateReader": "MetaMorphoRateReader.sol",
+}
+ARTIFACTS.update({
+    f"/artifacts/yield/{name}.json": CONTRACTS / "out-yield" / source / f"{name}.json"
+    for name, source in YIELD_CONTRACTS.items()
+})
 
 
 def build_artifacts():
@@ -37,6 +52,8 @@ def build_artifacts():
         cwd=CONTRACTS,
         check=True,
     )
+    # Yield vault contracts use their own profile (solc 0.8.28, out-yield/).
+    subprocess.run([forge, "build"], cwd=CONTRACTS, check=True, env={**os.environ, "FOUNDRY_PROFILE": "yield"})
     missing = [str(path) for path in ARTIFACTS.values() if not path.is_file()]
     if missing:
         raise RuntimeError("Forge did not create expected deployment artifacts: " + ", ".join(missing))

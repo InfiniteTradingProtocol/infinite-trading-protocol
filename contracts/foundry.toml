@@ -14,7 +14,7 @@
   solc = "0.8.26"
   src = "src"
   test = "test"
-  skip = ["test/Booster.t.sol", "test/AutoCompoundVault.t.sol"]
+  skip = ["test/Booster.t.sol", "test/AutoCompoundVault.t.sol", "src/yield/**", "test/yield/**", "script/yield/**"]
   via_ir = true
 
 [profile.ci]
@@ -35,6 +35,22 @@
   optimizer_runs = 10_000
   out = "out-agent-seats"
   cache_path = "cache-agent-seats"
+
+# Infinite Trading USD Yield vault (Morpho Vault V2 + InfiniteTradingRegistry), Base.
+# FOUNDRY_PROFILE=yield forge test --match-path 'test/yield/*'
+[profile.yield]
+  solc = "0.8.28"
+  evm_version = "cancun"
+  optimizer_runs = 100_000
+  src = "src/yield"
+  test = "test/yield"
+  script = "script/yield"
+  skip = []
+  out = "out-yield"
+  cache_path = "cache-yield"
+  ignored_error_codes = ["transient-storage"]
+  fuzz = { runs = 512 }
+  invariant = { runs = 128, depth = 40 }
 
 [etherscan]
   optimism = { key = "${API_KEY_OPTIMISTIC_ETHERSCAN}" }

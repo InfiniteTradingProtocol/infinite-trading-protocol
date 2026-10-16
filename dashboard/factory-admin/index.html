@@ -10,13 +10,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Infinite Trading Administration Dashboard</title>
-  <link rel="stylesheet" href="style.css?v=9">
+  <link rel="stylesheet" href="style.css?v=10">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.4/ethers.umd.min.js"
           integrity="sha384-6Zl0Pc8zjSz8KvmNeXRvUQgY4ryFb+BwDvKCmLYcBME0joAaru491tQgi9B7zsMM"
           crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-  <script src="config.js?v=12"></script>
+  <script src="config.js?v=13"></script>
   <script src="deployment.js?v=1" defer></script>
-  <script src="app.js?v=18" defer></script>
+  <script src="app.js?v=19" defer></script>
+  <script src="yield-vault.js?v=2" defer></script>
 </head>
 <body>
   <header class="topbar">
@@ -43,6 +44,7 @@
     <button data-module="velodrome" class="active">Velodrome Auto Compounder</button>
     <button data-module="uniswap">Uniswap V3 Auto Compounders</button>
     <button data-module="uniswap-deploy">Uniswap Deploy</button>
+    <button data-module="yield">USD Yield Vault</button>
     <button data-module="staking">ITP Staking</button>
     <button data-module="assets">Assets</button>
     <button data-module="safe">DAO Safe</button>
@@ -57,6 +59,9 @@
     <button data-module="uniswap" data-tab="v3">Vaults</button>
     <button data-module="uniswap" data-tab="v3-scan">Scans</button>
     <button data-module="uniswap-deploy" data-tab="deploy">Deploy V3 / V4</button>
+    <button data-module="yield" data-tab="yield-overview">Overview</button>
+    <button data-module="yield" data-tab="yield-manage">Manage</button>
+    <button data-module="yield" data-tab="yield-deploy">Deploy</button>
     <button data-module="staking" data-tab="staking">Overview &amp; operations</button>
     <button data-module="staking" data-tab="itp-burn">Burn ITP</button>
     <button data-module="assets" data-tab="assets">Token monitor</button>
@@ -106,6 +111,50 @@
         <p class="muted">Scans every vault for ITP, the paired token and VELO left idle in the contract, and builds one <code>inCaseTokensGetStuck(token)</code> call per non-zero balance. Empty balances are skipped. LP (<code>want</code>) can never be withdrawn this way.</p>
         <button id="scanRescue" class="btn">Scan vaults</button>
         <div id="rescueResult"></div>
+      </div>
+    </section>
+
+    <section id="tab-yield-overview" class="tab" data-module="yield">
+      <div id="yieldOverview"><div class="card loading">Loading on-chain state…</div></div>
+      <div class="card">
+        <div class="row between">
+          <h3>Pending curator actions (timelocked)</h3>
+          <button id="yieldScanPending" class="btn">Scan</button>
+        </div>
+        <label>Log RPC URL (optional, Base; stays in this browser)<input id="yieldLogRpc" placeholder="https://… (blank = wallet or public RPC)" autocomplete="off" /></label>
+        <div id="yieldPending" class="muted">Lists submitted vault changes that are still waiting for their timelock, with execute and revoke actions.</div>
+      </div>
+      <div class="card">
+        <h3>How this vault works</h3>
+        <ol class="help">
+          <li>Users deposit USDC into a <b>Morpho Vault V2</b> (immutable, audited). All USDC sits in one integration, the vault's <i>liquidity adapter</i>; withdrawals pull from it directly.</li>
+          <li>The <b>InfiniteTradingRegistry</b> (UUPS, DAO-owned, delayed upgrades) lists the allowed integrations, their on-chain APR readers and the executors (keepers).</li>
+          <li>The <b>InfiniteYieldAllocator</b> is the only vault allocator. <code>requireRebalance(to)</code> moves everything only if <code>to</code>'s APR beats the current one by the threshold and the cooldown elapsed.</li>
+          <li>New integrations, fee changes and allocator changes on the vault go through a <b>3-day timelock</b>; the Safe or a sentinel can revoke them while pending.</li>
+        </ol>
+      </div>
+    </section>
+
+    <section id="tab-yield-manage" class="tab" data-module="yield">
+      <p class="muted">Open Overview once to load the integration lists. DAO actions are simulated as the Safe; use “Add to batch” and export a Safe Transaction Builder file from the Batch tab (Base network).</p>
+      <div id="yieldManage"></div>
+    </section>
+
+    <section id="tab-yield-deploy" class="tab" data-module="yield">
+      <div class="card">
+        <h3>Deploy the USD Yield vault (Base)</h3>
+        <p class="muted">Every step is signed by your connected EOA. Helper contracts are deployed one by one, then the bootstrapper creates and configures the vault in two transactions and hands every role to the DAO Safe. The same wallet that deploys the bootstrapper must run both bootstrapper transactions and hold the seed USDC. Progress is saved in this browser.</p>
+        <div id="yieldDeployForm"></div>
+        <div class="row">
+          <button id="yieldDeployAll" class="btn primary">Deploy everything remaining</button>
+          <button id="yieldResetWizard" class="btn danger">Reset wizard progress</button>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Steps</h3>
+        <div id="yieldDeploySteps" class="table-wrap"></div>
+        <div id="yieldDeployLog"></div>
+        <div id="yieldDeploySnippet"></div>
       </div>
     </section>
 
