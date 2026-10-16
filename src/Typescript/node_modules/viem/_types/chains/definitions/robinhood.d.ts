@@ -1,0 +1,49 @@
+export declare const robinhood: {
+    blockExplorers: {
+        readonly default: {
+            readonly name: "Blockscout";
+            readonly url: "https://robinhoodchain.blockscout.com";
+            readonly apiUrl: "https://robinhoodchain.blockscout.com/api";
+        };
+    };
+    blockTime: 100;
+    contracts: {
+        readonly multicall3: {
+            readonly address: "0xca11bde05977b3631167028862be2a173976ca11";
+        };
+    };
+    ensTlds?: readonly string[] | undefined;
+    id: 4663;
+    name: "Robinhood Chain";
+    nativeCurrency: {
+        readonly name: "Ether";
+        readonly symbol: "ETH";
+        readonly decimals: 18;
+    };
+    experimental_preconfirmationTime?: number | undefined | undefined;
+    rpcUrls: {
+        readonly default: {
+            readonly http: readonly ["https://rpc.mainnet.chain.robinhood.com", "https://rpc.ordofi.network"];
+            readonly webSocket: readonly ["wss://rpc.ordofi.network"];
+        };
+    };
+    sourceId?: number | undefined | undefined;
+    supportsTransactionReplacementDetection?: boolean | undefined | undefined;
+    testnet?: boolean | undefined | undefined;
+    custom?: Record<string, unknown> | undefined;
+    extendSchema?: Record<string, unknown> | undefined;
+    fees?: import("../../index.js").ChainFees<undefined> | undefined;
+    formatters?: undefined;
+    prepareTransactionRequest?: ((args: import("../../index.js").PrepareTransactionRequestParameters, options: {
+        client: import("../../index.js").Client;
+        phase: "beforeFillTransaction" | "beforeFillParameters" | "afterFillParameters";
+    }) => Promise<import("../../index.js").PrepareTransactionRequestParameters>) | [fn: ((args: import("../../index.js").PrepareTransactionRequestParameters, options: {
+        client: import("../../index.js").Client;
+        phase: "beforeFillTransaction" | "beforeFillParameters" | "afterFillParameters";
+    }) => Promise<import("../../index.js").PrepareTransactionRequestParameters>) | undefined, options: {
+        runAt: readonly ("beforeFillTransaction" | "beforeFillParameters" | "afterFillParameters")[];
+    }] | undefined;
+    serializers?: import("../../index.js").ChainSerializers<undefined, import("../../index.js").TransactionSerializable> | undefined;
+    verifyHash?: ((client: import("../../index.js").Client, parameters: import("../../index.js").VerifyHashActionParameters) => Promise<import("../../index.js").VerifyHashActionReturnType>) | undefined;
+};
+//# sourceMappingURL=robinhood.d.ts.map

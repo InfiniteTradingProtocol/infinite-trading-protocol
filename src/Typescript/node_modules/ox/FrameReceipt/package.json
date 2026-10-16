@@ -1,0 +1,6 @@
+{
+  "type": "module",
+  "types": "../_types/core/FrameReceipt.d.ts",
+  "main": "../_cjs/core/FrameReceipt.js",
+  "module": "../_esm/core/FrameReceipt.js"
+}

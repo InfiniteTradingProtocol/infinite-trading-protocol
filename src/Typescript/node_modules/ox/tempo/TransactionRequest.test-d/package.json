@@ -1,0 +1,6 @@
+{
+  "type": "module",
+  "types": "../../_types/tempo/TransactionRequest.test-d.d.ts",
+  "main": "../../_cjs/tempo/TransactionRequest.test-d.js",
+  "module": "../../_esm/tempo/TransactionRequest.test-d.js"
+}

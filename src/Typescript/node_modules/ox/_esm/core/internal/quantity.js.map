@@ -1,0 +1,1 @@
+{"version":3,"file":"quantity.js","sourceRoot":"","sources":["../../../core/internal/quantity.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,GAAG,MAAM,WAAW,CAAA;AAEhC;;;;;;GAMG;AACH,MAAM,UAAU,aAAa,CAC3B,KAAgC,EAChC,OAAgC;IAEhC,IAAI,OAAO,KAAK,KAAK,QAAQ;QAAE,OAAO,KAAK,CAAA;IAC3C,OAAO,GAAG,CAAC,UAAU,CAAC,KAAK,EAAE,OAAO,CAAC,CAAA;AACvC,CAAC"}

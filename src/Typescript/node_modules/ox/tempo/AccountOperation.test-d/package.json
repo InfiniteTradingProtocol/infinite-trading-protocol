@@ -1,0 +1,6 @@
+{
+  "type": "module",
+  "types": "../../_types/tempo/AccountOperation.test-d.d.ts",
+  "main": "../../_cjs/tempo/AccountOperation.test-d.js",
+  "module": "../../_esm/tempo/AccountOperation.test-d.js"
+}

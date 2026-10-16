@@ -1,0 +1,6 @@
+{
+  "type": "module",
+  "types": "../_types/core/FrameRequest.d.ts",
+  "main": "../_cjs/core/FrameRequest.js",
+  "module": "../_esm/core/FrameRequest.js"
+}

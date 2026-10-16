@@ -67,6 +67,8 @@ export type Chain<
   }
   /** Source Chain ID (ie. the L1 chain) */
   sourceId?: number | undefined
+  /** Whether transaction replacement detection is supported. @default true */
+  supportsTransactionReplacementDetection?: boolean | undefined
   /** Flag for test networks */
   testnet?: boolean | undefined
 } & ChainConfig<formatters, extendSchema>
@@ -79,9 +81,10 @@ type PrepareTransactionRequestPhase =
   | 'beforeFillTransaction'
   | 'beforeFillParameters'
   | 'afterFillParameters'
+
 type PrepareTransactionRequestFn = (
   args: PrepareTransactionRequestParameters,
-  options: { phase: PrepareTransactionRequestPhase },
+  options: { client: Client; phase: PrepareTransactionRequestPhase },
 ) => Promise<PrepareTransactionRequestParameters>
 
 type ChainVerifyHashFn = (
@@ -247,7 +250,21 @@ export type ChainSerializers<
   transaction?:
     | SerializeTransactionFn<transaction, TransactionSerializedGeneric>
     | undefined
+  /** Modifies how signed Transactions are serialized into an envelope. */
+  transactionEnvelope?: ChainTransactionEnvelopeFn<transaction> | undefined
 }
+
+// Method extraction preserves assignability between generic Chain variants.
+type ChainTransactionEnvelopeFn<
+  transaction extends TransactionSerializableGeneric,
+> = {
+  fn(parameters: {
+    /** Serialized signed transaction. */
+    serializedTransaction: TransactionSerializedGeneric
+    /** Transaction before envelope serialization. */
+    transaction: transaction
+  }): TransactionSerializedGeneric | Promise<TransactionSerializedGeneric>
+}['fn']
 
 /////////////////////////////////////////////////////////////////////
 // Utils

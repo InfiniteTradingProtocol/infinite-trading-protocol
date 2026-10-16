@@ -1,0 +1,6 @@
+{
+  "type": "module",
+  "types": "../_types/core/Frame.d.ts",
+  "main": "../_cjs/core/Frame.js",
+  "module": "../_esm/core/Frame.js"
+}

@@ -1,0 +1,6 @@
+{
+  "type": "module",
+  "types": "../../_types/tempo/ZoneId.test-d.d.ts",
+  "main": "../../_cjs/tempo/ZoneId.test-d.js",
+  "module": "../../_esm/tempo/ZoneId.test-d.js"
+}

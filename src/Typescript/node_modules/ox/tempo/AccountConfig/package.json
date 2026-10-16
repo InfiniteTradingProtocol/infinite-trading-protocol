@@ -1,0 +1,6 @@
+{
+  "type": "module",
+  "types": "../../_types/tempo/AccountConfig.d.ts",
+  "main": "../../_cjs/tempo/AccountConfig.js",
+  "module": "../../_esm/tempo/AccountConfig.js"
+}

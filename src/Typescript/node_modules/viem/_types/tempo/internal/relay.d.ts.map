@@ -1,0 +1,1 @@
+{"version":3,"file":"relay.d.ts","sourceRoot":"","sources":["../../../tempo/internal/relay.ts"],"names":[],"mappings":"AAGA,OAAO,KAAK,KAAK,KAAK,MAAM,aAAa,CAAA;AAEzC,kFAAkF;AAClF,wBAAsB,KAAK,CACzB,OAAO,EAAE,OAAO,EAChB,OAAO,EAAE,KAAK,CAAC,aAAa,CAAC,OAAO,EACpC,OAAO,GAAE,KAAK,CAAC,aAAa,CAAC,cAAmB,GAC/C,OAAO,CAAC,QAAQ,CAAC,CAmJnB"}

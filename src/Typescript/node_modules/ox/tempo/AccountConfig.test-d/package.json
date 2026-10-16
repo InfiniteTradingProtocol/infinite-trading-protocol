@@ -1,0 +1,6 @@
+{
+  "type": "module",
+  "types": "../../_types/tempo/AccountConfig.test-d.d.ts",
+  "main": "../../_cjs/tempo/AccountConfig.test-d.js",
+  "module": "../../_esm/tempo/AccountConfig.test-d.js"
+}
