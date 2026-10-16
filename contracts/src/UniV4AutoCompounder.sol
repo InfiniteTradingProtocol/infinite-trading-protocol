@@ -201,6 +201,7 @@ contract UniV4AutoCompounder is Initializable, UUPSUpgradeable {
     // ── Share accounting ──────────────────────────────────────────────────────
     uint256 public totalShares;
     mapping(address => uint256) public userShares;
+    uint256 public constant MINIMUM_LIQUIDITY = 1000;
 
     // ── Compound carryover ────────────────────────────────────────────────────
     uint256 public pendingReinvest0;
@@ -386,11 +387,14 @@ contract UniV4AutoCompounder is Initializable, UUPSUpgradeable {
         // Share accounting
         uint256 shares;
         if (totalShares == 0) {
-            shares = uint256(liquidityAdded);
+            require(uint256(liquidityAdded) > MINIMUM_LIQUIDITY, "Deposit too small to seed vault");
+            shares = uint256(liquidityAdded) - MINIMUM_LIQUIDITY;
+            totalShares += MINIMUM_LIQUIDITY;
         } else {
             require(liquidityBefore > 0, "Invariant: shares exist but no liquidity");
             shares = (uint256(liquidityAdded) * totalShares) / liquidityBefore;
         }
+        require(shares > 0, "Zero shares");
         totalShares            += shares;
         userShares[msg.sender] += shares;
 
@@ -597,11 +601,14 @@ contract UniV4AutoCompounder is Initializable, UUPSUpgradeable {
 
         // Share accounting
         if (totalShares == 0) {
-            shares = uint256(liquidityAdded);
+            require(uint256(liquidityAdded) > MINIMUM_LIQUIDITY, "Deposit too small to seed vault");
+            shares = uint256(liquidityAdded) - MINIMUM_LIQUIDITY;
+            totalShares += MINIMUM_LIQUIDITY;
         } else {
             require(liquidityBefore > 0, "Invariant");
             shares = (uint256(liquidityAdded) * totalShares) / liquidityBefore;
         }
+        require(shares > 0, "Zero shares");
         totalShares            += shares;
         userShares[msg.sender] += shares;
 

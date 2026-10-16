@@ -1,10 +1,12 @@
 # directories
 cache
 cache-velodrome
+cache-agent-seats
 coverage
 node_modules
 out
 out-velodrome
+out-agent-seats
 
 # files
 *.env

@@ -28,6 +28,14 @@
   out = "out-velodrome"
   cache_path = "cache-velodrome"
 
+# AgentSeats + VelodromeItpOracle (Infinite Agents, Optimism): OZ 5.6 needs Cancun (mcopy, transient storage).
+# FOUNDRY_PROFILE=agent-seats forge test --match-path 'test/AgentSeats*'
+[profile.agent-seats]
+  evm_version = "cancun"
+  optimizer_runs = 10_000
+  out = "out-agent-seats"
+  cache_path = "cache-agent-seats"
+
 [etherscan]
   optimism = { key = "${API_KEY_OPTIMISTIC_ETHERSCAN}" }
   base = { key = "${BASE_ETHERSCAN_API_KEY}", url = "https://api.etherscan.io/v2/api?chainid=8453" }

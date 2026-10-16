@@ -110,6 +110,9 @@ contract AutoCompoundVault {
     // Deposit function that swaps USDC to ITP, provides liquidity to the ITP-USDC pool, and stakes LP tokens
     function deposit(uint256 usdcAmount) external {
         require(usdcAmount > 0, "Amount must be greater than 0");
+        uint256 liquidityBefore = getTotalVaultValue();
+        uint256 sharesBefore = totalShares;
+        require(sharesBefore == 0 || liquidityBefore > 0, "Invariant: shares exist but no liquidity");
 
         // Transfer USDC from the user to the vault
         IERC20(usdcToken).transferFrom(msg.sender, address(this), usdcAmount);
@@ -127,7 +130,8 @@ contract AutoCompoundVault {
         stakeInGauge(liquidity);
 
         // Calculate the user's share of the vault based on their contribution to the total pool
-        uint256 shares = (totalShares == 0) ? liquidity : (liquidity * totalShares) / getTotalVaultValue();
+        uint256 shares = (sharesBefore == 0) ? liquidity : (liquidity * sharesBefore) / liquidityBefore;
+        require(shares > 0, "Zero shares");
         console.log("shares: ", shares);
         totalShares += shares;
         userShares[msg.sender] += shares;
