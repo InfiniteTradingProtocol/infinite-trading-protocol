@@ -59,6 +59,20 @@ The `/src` directory contains various scripts and functions implemented in diffe
 
 ## Usage
 
+### Protocol administration dashboard
+
+The static [factory admin dashboard](dashboard/factory-admin/index.html) provides
+vault, staking, treasury, deployment and Safe batch workflows. From
+`dashboard/factory-admin`, run `python3 serve.py` and open the localhost URL it
+prints. The server builds the contract artifacts needed by deployment tools;
+Foundry and the contract dependencies must already be installed.
+
+The dashboard uses the frontend's dark-violet palette, purple controls and
+bundled Infinite Trading logo. Module navigation sits beside the workspace on
+desktop and becomes a wrapping navigation grid on mobile. Each module retains
+its own section navigation. Wallet signing, simulations and network-scoped Safe
+batches are unchanged by the visual styling.
+
 ### R Scripts
 
 To use the R scripts, make sure you have the required packages installed in your R environment. You can install them using the following command:

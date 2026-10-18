@@ -2311,17 +2311,42 @@
     safe: "safe-drain",
   };
 
+  const moduleDescriptions = {
+    velodrome: "Inspect vaults, manage permissions and prepare factory operations on Optimism.",
+    uniswap: "Review concentrated-liquidity vaults, scan positions and prepare compounder operations.",
+    "uniswap-deploy": "Configure and deploy Uniswap V3 or V4 auto compounders with your connected wallet.",
+    yield: "Inspect the Base USD yield vault, review pending changes and manage integrations.",
+    staking: "Review ITP staking balances, manage rewards and prepare token operations.",
+    assets: "Monitor token balances and contract state across supported networks.",
+    safe: "Inspect treasury assets and vault traders, then prepare DAO Safe actions for review.",
+    batch: "Review queued actions by network and export them to Safe Transaction Builder.",
+  };
+
+  function updateModuleHeading(button, key) {
+    $("moduleTitle").textContent = key === "batch" ? "Transaction batch" : button.textContent.trim();
+    $("moduleDescription").textContent = moduleDescriptions[key];
+    document.querySelectorAll("#modules button").forEach((item) => {
+      if (item === button) item.setAttribute("aria-current", "true");
+      else item.removeAttribute("aria-current");
+    });
+  }
+
   function activateTab(tabButton) {
     const selectedModule = tabButton.dataset.module;
     $("tabs").classList.remove("hidden");
     document.querySelector("#modules [data-global-tab]").classList.remove("active");
-    document.querySelectorAll("#tabs button").forEach((button) => button.classList.toggle("active", button === tabButton));
+    document.querySelectorAll("#tabs button").forEach((button) => {
+      button.classList.toggle("active", button === tabButton);
+      if (button === tabButton) button.setAttribute("aria-current", "true");
+      else button.removeAttribute("aria-current");
+    });
     document.querySelectorAll(".tab").forEach((section) => section.classList.toggle("active", section.id === `tab-${tabButton.dataset.tab}` && section.dataset.module === selectedModule));
   }
 
   function activateModule(moduleName) {
     const moduleButton = document.querySelector(`#modules button[data-module="${moduleName}"]`);
     if (!moduleButton) return;
+    updateModuleHeading(moduleButton, moduleName);
     document.querySelectorAll("#modules button[data-module]").forEach((button) => button.classList.toggle("active", button === moduleButton));
     document.querySelector("#modules [data-global-tab]").classList.remove("active");
     $("tabs").classList.remove("hidden");
@@ -2338,6 +2363,7 @@
   function activateGlobalTab(tabName) {
     const globalButton = document.querySelector(`#modules [data-global-tab="${tabName}"]`);
     if (!globalButton) return;
+    updateModuleHeading(globalButton, tabName);
     document.querySelectorAll("#modules button[data-module]").forEach((button) => button.classList.remove("active"));
     globalButton.classList.add("active");
     $("tabs").classList.add("hidden");

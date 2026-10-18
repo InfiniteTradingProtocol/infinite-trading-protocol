@@ -3,29 +3,32 @@
   Infinite Trading Administration Dashboard (static, no build step, no secrets).
   Run locally so wallet extensions can inject:
     cd dashboard/factory-admin && python3 serve.py
-  then open http://127.0.0.1:8765/
+  then open the localhost URL printed by the server.
 -->
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Infinite Trading Administration Dashboard</title>
-  <link rel="stylesheet" href="style.css?v=10">
+  <meta name="theme-color" content="#1A1333">
+  <link rel="icon" type="image/png" href="assets/infinite-trading.png">
+  <link rel="stylesheet" href="style.css?v=11">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.4/ethers.umd.min.js"
           integrity="sha384-6Zl0Pc8zjSz8KvmNeXRvUQgY4ryFb+BwDvKCmLYcBME0joAaru491tQgi9B7zsMM"
           crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <script src="config.js?v=13"></script>
   <script src="deployment.js?v=1" defer></script>
-  <script src="app.js?v=20" defer></script>
+  <script src="app.js?v=21" defer></script>
   <script src="yield-vault.js?v=2" defer></script>
 </head>
 <body>
+  <a class="skip-link" href="#main">Skip to dashboard</a>
   <header class="topbar">
     <div class="brand">
-      <span class="logo">∞</span>
+      <img class="logo" src="assets/infinite-trading.png" width="56" height="56" alt="">
       <div>
-        <div class="title">Infinite Trading Administration Dashboard</div>
-        <div class="subtitle">Protocol operations · Ethereum · Optimism · Base · Arbitrum · Polygon</div>
+        <div class="title">Infinite Trading</div>
+        <div class="subtitle">Protocol administration</div>
       </div>
     </div>
     <div class="wallet">
@@ -40,16 +43,34 @@
     </div>
   </header>
 
-  <nav class="modules" id="modules" aria-label="Contract families and global tools">
-    <button data-module="velodrome" class="active">Velodrome Auto Compounder</button>
-    <button data-module="uniswap">Uniswap V3 Auto Compounders</button>
-    <button data-module="uniswap-deploy">Uniswap Deploy</button>
-    <button data-module="yield">USD Yield Vault</button>
-    <button data-module="staking">ITP Staking</button>
-    <button data-module="assets">Assets</button>
-    <button data-module="safe">DAO Safe</button>
-    <button data-global-tab="batch">Batch <span id="batchCount" class="count">0</span></button>
-  </nav>
+  <div class="workspace">
+    <aside class="sidebar">
+      <div class="nav-label">Workspace</div>
+      <nav class="modules" id="modules" aria-label="Contract families and global tools">
+        <button data-module="velodrome" class="active" aria-current="true">Velodrome Auto Compounder</button>
+        <button data-module="uniswap">Uniswap V3 Auto Compounders</button>
+        <button data-module="uniswap-deploy">Uniswap Deploy</button>
+        <button data-module="yield">USD Yield Vault</button>
+        <button data-module="staking">ITP Staking</button>
+        <button data-module="assets">Assets</button>
+        <button data-module="safe">DAO Safe</button>
+        <button data-global-tab="batch">Batch <span id="batchCount" class="count">0</span></button>
+      </nav>
+      <div class="sidebar-note">
+        <div class="nav-label">Review before signing</div>
+        <p>Simulate calls first. Queue DAO actions in Batch for Safe review.</p>
+        <a href="https://www.infinitetrading.io/app" target="_blank" rel="noopener noreferrer">Open trading app <span aria-hidden="true">&#8599;</span></a>
+      </div>
+    </aside>
+    <div class="content">
+      <div class="page-heading">
+        <div class="eyebrow">Protocol operations</div>
+        <h1 id="moduleTitle">Velodrome Auto Compounder</h1>
+        <p id="moduleDescription">Inspect vaults, manage permissions and prepare factory operations on Optimism.</p>
+        <div class="network-list" aria-label="Supported networks">
+          <span>Ethereum</span><span>Optimism</span><span>Base</span><span>Arbitrum</span><span>Polygon</span>
+        </div>
+      </div>
   <nav class="tabs" id="tabs" aria-label="Velodrome Auto Compounder sections">
     <button data-module="velodrome" data-tab="overview" class="active">Overview</button>
     <button data-module="velodrome" data-tab="vaults">Vaults</button>
@@ -69,8 +90,8 @@
     <button data-module="safe" data-tab="safe-traders">Vault traders</button>
   </nav>
 
-  <main>
-    <div id="notice" class="notice hidden"></div>
+  <main id="main" tabindex="-1">
+    <div id="notice" class="notice hidden" role="status"></div>
 
     <section id="tab-overview" class="tab active" data-module="velodrome">
       <div class="grid" id="overviewCards"><div class="card loading">Loading on-chain state…</div></div>
@@ -490,6 +511,8 @@
       </div>
     </section>
   </main>
+    </div>
+  </div>
 
   <footer>
     Static page · reads from public RPC · signing only through your wallet · <span id="footerLinks"></span>
