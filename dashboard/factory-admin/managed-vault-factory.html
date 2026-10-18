@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Managed Vault Factory PoC</title>
+  <style>
+    :root {
+      --bg: #0b0b14;
+      --panel: #171827;
+      --panel-alt: #1d2032;
+      --line: rgba(255,255,255,0.08);
+      --text: rgba(255,255,255,0.9);
+      --muted: rgba(255,255,255,0.65);
+      --purple: #8b5cf6;
+      --purple-2: #c084fc;
+      --green: #34d399;
+      --red: #fb7185;
+      --shadow: 0 25px 45px rgba(0,0,0,0.35);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+      background: radial-gradient(circle at top, #1a1530 0%, var(--bg) 50%);
+      color: var(--text);
+    }
+    .page {
+      max-width: 1100px;
+      margin: 48px auto;
+      padding: 0 20px 48px;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: clamp(2rem, 3vw, 2.7rem);
+      letter-spacing: -0.04em;
+    }
+    .header p {
+      margin: 8px 0 0;
+      color: var(--muted);
+    }
+    .status {
+      background: rgba(139, 92, 246, 0.15);
+      border: 1px solid rgba(139, 92, 246, 0.3);
+      border-radius: 999px;
+      padding: 10px 14px;
+      color: var(--text);
+      font-size: 0.86rem;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1.3fr 0.7fr;
+      gap: 20px;
+    }
+    .card {
+      background: rgba(18,22,36,0.85);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      box-shadow: var(--shadow);
+      padding: 22px;
+    }
+    label {
+      display: block;
+      color: var(--muted);
+      font-size: 0.84rem;
+      margin-bottom: 8px;
+    }
+    input, textarea, select, button {
+      width: 100%;
+      font: inherit;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.02);
+      padding: 12px 14px;
+      color: var(--text);
+      outline: none;
+    }
+    input:focus, textarea:focus, select:focus {
+      border-color: rgba(139, 92, 246, 0.8);
+      box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.18);
+    }
+    textarea {
+      min-height: 120px;
+      resize: vertical;
+    }
+    .two-up {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+      gap: 16px;
+    }
+    .stack {
+      display: grid;
+      gap: 14px;
+    }
+    .actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 18px;
+    }
+    button {
+      cursor: pointer;
+      transition: transform 0.15s ease, border-color 0.15s ease;
+    }
+    button:hover {
+      transform: translateY(-1px);
+    }
+    .primary {
+      background: linear-gradient(135deg, var(--purple), var(--purple-2));
+      border-color: transparent;
+      color: white;
+      font-weight: 700;
+    }
+    .ghost {
+      background: transparent;
+      color: var(--text);
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 999px;
+      padding: 7px 10px;
+      font-size: 0.75rem;
+      background: rgba(52,211,153,0.12);
+      border: 1px solid rgba(52,211,153,0.25);
+      color: #d8fff1;
+    }
+    .result {
+      margin-top: 18px;
+      padding: 16px;
+      background: rgba(255,255,255,0.02);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 0.82rem;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      color: var(--text);
+      word-break: break-word;
+    }
+    .small {
+      color: var(--muted);
+      font-size: 0.78rem;
+      line-height: 1.5;
+    }
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: 1fr; }
+      .two-up { grid-template-columns: 1fr; }
+      .header { align-items: flex-start; flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="header">
+      <div>
+        <h1>Managed Vault Factory PoC</h1>
+        <p>DAO-owned allowlists, deployer-owned vaults, per-trade fee split, and executor reward routing.</p>
+      </div>
+      <div class="status" id="walletStatus">Wallet not connected</div>
+    </div>
+
+    <div class="grid">
+      <section class="card">
+        <div class="stack">
+          <div class="two-up">
+            <div>
+              <label>Network</label>
+              <select id="network">
+                <option value="10">Optimism</option>
+                <option value="8453">Base</option>
+              </select>
+            </div>
+            <div>
+              <label>Factory address</label>
+              <input id="factoryAddress" value="0x0000000000000000000000000000000000000000" />
+            </div>
+          </div>
+
+          <div class="two-up">
+            <div>
+              <label>Owner / deployer</label>
+              <input id="owner" placeholder="0x..." />
+            </div>
+            <div>
+              <label>DAO Safe / treasury</label>
+              <input id="treasury" placeholder="0x..." />
+            </div>
+          </div>
+
+          <div class="two-up">
+            <div>
+              <label>Metadata URI</label>
+              <input id="metadataUri" value="ipfs://QmExample/managed-vault.json" />
+            </div>
+            <div>
+              <label>Strategy tag</label>
+              <input id="strategyTag" value="Macro / Momentum" />
+            </div>
+          </div>
+
+          <div>
+            <label>Approved assets (comma-separated)</label>
+            <input id="approvedAssets" value="0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85,0x4200000000000000000000000000000000000006,0x4200000000000000000000000000000000000042,0x0a7B751FcDBBAA8BB988B9217ad5Fb5cfe7bf7A0" />
+          </div>
+
+          <div>
+            <label>Approved routers (comma-separated)</label>
+            <input id="approvedRouters" value="0x0000000000000000000000000000000000000000" placeholder="0x..." />
+          </div>
+
+          <div>
+            <label>Approved executors (comma-separated)</label>
+            <input id="approvedExecutors" placeholder="0x..." />
+          </div>
+
+          <div class="two-up">
+            <div>
+              <label>Trade fee (bps)</label>
+              <input id="tradeFeeBps" value="25" />
+            </div>
+            <div>
+              <label>Executor fee split (bps)</label>
+              <input id="executorFeeShareBps" value="5000" />
+            </div>
+          </div>
+
+          <div class="actions">
+            <button class="primary" id="connectWallet">Connect wallet</button>
+            <button class="ghost" id="buildPayload">Build payload</button>
+            <button class="ghost" id="sendTx">Send createVault tx</button>
+          </div>
+        </div>
+      </section>
+
+      <aside class="card">
+        <h3 style="margin-top:0;">Factory policy</h3>
+        <div class="small">
+          <div class="pill">DAO-owned allowlists</div>
+          <p>This vault factory keeps the final authority over the allowed assets, routers, executor set and fee split. The owner still controls deposits/withdrawals and ownership transfer on the deployed vault.</p>
+          <p>Metadata and strategy tags live on the vault, but the factory can set them once the vault passes the policy check.</p>
+          <p>Multicall-compatible flows pass an explicit <code>rewardRecipient</code> and <code>executor</code> so the caller that executes the batch can receive the configured executor share.</p>
+        </div>
+        <div class="result" id="preview">Ready.</div>
+      </aside>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.4/ethers.umd.min.js"></script>
+  <script src="./managed-vault-factory.js"></script>
+</body>
+</html>

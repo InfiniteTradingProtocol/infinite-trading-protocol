@@ -67,6 +67,12 @@ vault, staking, treasury, deployment and Safe batch workflows. From
 prints. The server builds the contract artifacts needed by deployment tools;
 Foundry and the contract dependencies must already be installed.
 
+A companion POC frontend, [managed-vault-factory.html](dashboard/factory-admin/managed-vault-factory.html),
+lets a deployer create a single-owner vault with DAO-controlled asset/route/executor
+allowlists, a factory fee split and a multicall-friendly `executor`/`rewardRecipient`
+trade flow. It is intentionally simple: the owner can deposit, withdraw, transfer
+ownership and route strategy trades, while the factory enforces the base policy.
+
 The dashboard uses the frontend's dark-violet palette, purple controls and
 bundled Infinite Trading logo. Module navigation sits beside the workspace on
 desktop and becomes a wrapping navigation grid on mobile. Each module retains
