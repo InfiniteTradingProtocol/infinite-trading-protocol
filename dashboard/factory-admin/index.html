@@ -16,7 +16,7 @@
           crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <script src="config.js?v=13"></script>
   <script src="deployment.js?v=1" defer></script>
-  <script src="app.js?v=19" defer></script>
+  <script src="app.js?v=20" defer></script>
   <script src="yield-vault.js?v=2" defer></script>
 </head>
 <body>
@@ -66,6 +66,7 @@
     <button data-module="staking" data-tab="itp-burn">Burn ITP</button>
     <button data-module="assets" data-tab="assets">Token monitor</button>
     <button data-module="safe" data-tab="safe-drain">Treasury &amp; drain</button>
+    <button data-module="safe" data-tab="safe-traders">Vault traders</button>
   </nav>
 
   <main>
@@ -353,6 +354,43 @@
           <button id="safeAddBatch" class="btn">Add to batch</button>
         </div>
         <div id="safeDrainResult"></div>
+      </div>
+    </section>
+
+    <section id="tab-safe-traders" class="tab" data-module="safe">
+      <div class="card">
+        <h3>Rotate vault traders</h3>
+        <p class="muted">Scans every dHEDGE / Chamber vault on the selected network, keeps the ones whose manager is the address below, and reads each vault's current trader. Select vaults, set the new trader, and change them all in one Safe transaction (<code>PoolManagerLogic.setTrader</code>, manager only).</p>
+        <div class="form two">
+          <label>Network <select id="traderNetwork"></select></label>
+          <label>Vault manager (DAO Safe) <input id="traderManager" placeholder="0x…"></label>
+        </div>
+        <button id="traderScan" class="btn primary">Scan vaults</button>
+        <div id="traderInfo"></div>
+      </div>
+      <div id="traderVaultsCard" class="card hidden">
+        <div class="row between">
+          <h3>Vaults <span id="traderSelCount" class="count">0</span></h3>
+          <div class="row">
+            <label class="inline">Select by current trader <select id="traderSelectBy"></select></label>
+            <button id="traderSelectAll" class="btn small">Select all</button>
+            <button id="traderSelectNone" class="btn small">Select none</button>
+          </div>
+        </div>
+        <div class="table-wrap"><table id="traderVaultsTable"></table></div>
+      </div>
+      <div id="traderChangeCard" class="card hidden">
+        <h3>Set new trader on selected vaults</h3>
+        <p class="muted">Each selected vault becomes one <code>setTrader(newTrader)</code> call in a single atomic Safe batch (MultiSend). Simulate first: vaults that would revert are unselected automatically.</p>
+        <div class="form">
+          <label>New trader (destination wallet) <input id="traderNew" placeholder="0x…"></label>
+        </div>
+        <div class="row">
+          <button id="traderSimulate" class="btn">Simulate selected</button>
+          <button id="traderExport" class="btn primary">Download Safe Transaction Builder JSON</button>
+          <button id="traderAddBatch" class="btn">Add to batch</button>
+        </div>
+        <div id="traderResult"></div>
       </div>
     </section>
 

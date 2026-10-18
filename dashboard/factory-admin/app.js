@@ -2062,6 +2062,244 @@
     renderSafeAssets();
   }
 
+  // ---------- dHEDGE / Chamber vault trader rotation ----------
+
+  const POOL_IFACE = new ethers.Interface([
+    "function poolManagerLogic() view returns (address)",
+    "function name() view returns (string)",
+    "function totalSupply() view returns (uint256)",
+    "function tokenPrice() view returns (uint256)",
+  ]);
+  const PML_IFACE = new ethers.Interface([
+    "function manager() view returns (address)",
+    "function trader() view returns (address)",
+    "function setTrader(address newTrader)",
+  ]);
+  // setTrader costs ~40k gas; this keeps every exported Safe transaction far below block gas limits.
+  const TRADER_CALLS_PER_TX = 150;
+
+  async function multicallChunks(provider, calls, size = 200) {
+    const multicall = new ethers.Contract(CFG.multicall3, mcIface, provider);
+    const out = [];
+    for (let i = 0; i < calls.length; i += size) {
+      const chunk = calls.slice(i, i + size);
+      out.push(...(await withRetry(() => multicall.aggregate3.staticCall(chunk.map(([target, data]) => [target, true, data])))));
+    }
+    return out;
+  }
+
+  const decodeOr = (iface, fn, r, fallback = null) => {
+    if (!r?.success || r.returnData === "0x") return fallback;
+    try {
+      return iface.decodeFunctionResult(fn, r.returnData)[0];
+    } catch {
+      return fallback;
+    }
+  };
+
+  async function scanVaultTraders(chainId, manager) {
+    const provider = providerFor(chainId);
+    const factory = new ethers.Contract(CFG.safeTreasury[chainId].dhedgeFactory, DHEDGE_ABI, provider);
+    const pools = await withRetry(() => factory.getDeployedFunds());
+    const pmlRes = await multicallChunks(provider, pools.map((p) => [p, POOL_IFACE.encodeFunctionData("poolManagerLogic")]));
+    const withPml = pools.map((pool, i) => ({ pool: ethers.getAddress(pool), pml: decodeOr(POOL_IFACE, "poolManagerLogic", pmlRes[i]) })).filter((v) => v.pml);
+    const roles = await multicallChunks(provider, withPml.flatMap((v) => [[v.pml, PML_IFACE.encodeFunctionData("manager")], [v.pml, PML_IFACE.encodeFunctionData("trader")]]));
+    const vaults = withPml
+      .map((v, i) => ({ ...v, manager: decodeOr(PML_IFACE, "manager", roles[2 * i]), trader: decodeOr(PML_IFACE, "trader", roles[2 * i + 1], ethers.ZeroAddress) }))
+      .filter((v) => eq(v.manager, manager));
+    const meta = await multicallChunks(provider, vaults.flatMap((v) => ["name", "totalSupply", "tokenPrice"].map((fn) => [v.pool, POOL_IFACE.encodeFunctionData(fn)])), 60);
+    vaults.forEach((v, i) => {
+      v.name = decodeOr(POOL_IFACE, "name", meta[3 * i], short(v.pool));
+      const supply = decodeOr(POOL_IFACE, "totalSupply", meta[3 * i + 1]);
+      const price = decodeOr(POOL_IFACE, "tokenPrice", meta[3 * i + 2]);
+      v.usd = supply != null && price != null ? Number(ethers.formatUnits((supply * price) / 10n ** 18n, 18)) : null;
+      v.selected = false;
+      v.sim = null;
+    });
+    vaults.sort((a, b) => (b.usd || 0) - (a.usd || 0));
+    return { vaults, total: pools.length };
+  }
+
+  function traderLabel(chainId, trader, manager) {
+    if (!trader || eq(trader, ethers.ZeroAddress)) return h("span", { class: "muted" }, "none");
+    const tag = eq(trader, manager) ? " (manager)" : eq(trader, CFG.dao) ? " (DAO Safe)" : "";
+    return h("span", {}, chainLink(chainId, trader), tag);
+  }
+
+  function pendingTrader() {
+    const v = ($("traderNew").value || "").trim();
+    return ethers.isAddress(v) ? ethers.getAddress(v) : null;
+  }
+
+  function renderTraderVaults() {
+    const scan = state.traderScan;
+    $("traderVaultsCard").classList.toggle("hidden", !scan);
+    $("traderChangeCard").classList.toggle("hidden", !scan || !scan.vaults.length);
+    if (!scan) return;
+    const next = pendingTrader();
+    const selected = scan.vaults.filter((v) => v.selected);
+    const tvl = selected.reduce((s, v) => s + (v.usd || 0), 0);
+    $("traderSelCount").textContent = `${selected.length} / ${scan.vaults.length} selected${tvl ? ` · ≈ ${usd(tvl)} TVL` : ""}`;
+    const groups = new Map();
+    scan.vaults.forEach((v) => groups.set(v.trader.toLowerCase(), (groups.get(v.trader.toLowerCase()) || 0) + 1));
+    const prev = $("traderSelectBy").value;
+    $("traderSelectBy").replaceChildren(
+      h("option", { value: "" }, "—"),
+      ...[...groups].map(([t, n]) => h("option", { value: t }, `${eq(t, ethers.ZeroAddress) ? "none" : short(ethers.getAddress(t))} (${n})`)),
+    );
+    $("traderSelectBy").value = groups.has(prev) ? prev : "";
+    const head = h("tr", {}, ...["", "Vault", "Address", "Current trader", "TVL", "Status"].map((t) => h("th", {}, t)));
+    const rows = scan.vaults.map((v) => {
+      const box = h("input", { type: "checkbox", "aria-label": `Change trader of ${v.name}`, onchange: (e) => { v.selected = e.target.checked; renderTraderVaults(); } });
+      box.checked = v.selected;
+      const status = next && eq(v.trader, next) ? badge("info", "already this trader") : v.sim == null ? "–" : v.sim.ok ? badge("ok", "simulates OK") : h("span", { class: "result err" }, v.sim.reason.slice(0, 80));
+      return h(
+        "tr",
+        { class: v.selected ? "" : "muted-row" },
+        h("td", {}, box),
+        h("td", {}, v.name.slice(0, 48)),
+        h("td", { class: "mono" }, chainLink(scan.chainId, v.pool)),
+        h("td", { class: "mono" }, traderLabel(scan.chainId, v.trader, scan.manager)),
+        h("td", {}, v.usd == null ? "–" : usd(v.usd)),
+        h("td", {}, status),
+      );
+    });
+    $("traderVaultsTable").replaceChildren(h("thead", {}, head), h("tbody", {}, rows.length ? rows : h("tr", {}, h("td", { colspan: "6" }, "No vaults managed by this address on this network."))));
+  }
+
+  async function onTraderScan() {
+    const info = $("traderInfo");
+    try {
+      const chainId = Number($("traderNetwork").value);
+      const manager = requireAddress($("traderManager").value, "Vault manager");
+      info.replaceChildren(h("p", { class: "muted" }, "Connecting to networks…"));
+      await safeCall(state.ready);
+      const provider = providerFor(chainId);
+      if (!provider) throw new Error(state.networkErrors[chainId] || `${networkFor(chainId).chainName} RPC unavailable.`);
+      state.traderScan = null;
+      renderTraderVaults();
+      $("traderResult").replaceChildren();
+      info.replaceChildren(h("p", { class: "muted" }, `Scanning every dHEDGE vault on ${networkFor(chainId).chainName}…`));
+      const sc = new ethers.Contract(manager, SAFE_ABI, provider);
+      const [{ vaults, total }, threshold, owners] = await Promise.all([scanVaultTraders(chainId, manager), safeCall(sc.getThreshold()), safeCall(sc.getOwners(), [])]);
+      state.traderScan = { chainId, manager, vaults };
+      const traders = new Set(vaults.map((v) => v.trader.toLowerCase())).size;
+      info.replaceChildren(
+        kv([
+          ["Manager", chainLink(chainId, manager, manager)],
+          ["Signers", threshold == null ? "not a Safe: the JSON export needs a Safe; use “Add to batch” → send with wallet instead" : `${threshold} of ${owners.length}`],
+          ["Found", `${vaults.length} vault(s) managed by this address (checked all ${total} vaults) · ${traders} distinct trader(s)`],
+          ["Open in Safe", ext(`https://app.safe.global/home?safe=${networkFor(chainId).safeNetwork}:${manager}`, "Safe app")],
+        ]),
+      );
+      renderTraderVaults();
+    } catch (e) {
+      info.replaceChildren(h("p", { class: "result err" }, `✗ ${decodeError(e)}`));
+    }
+  }
+
+  function traderPlan() {
+    const scan = state.traderScan;
+    if (!scan) throw new Error("Scan the vaults first.");
+    const newTrader = requireAddress($("traderNew").value, "New trader");
+    if (eq(newTrader, ethers.ZeroAddress)) throw new Error("New trader cannot be the zero address.");
+    const selected = scan.vaults.filter((v) => v.selected);
+    if (!selected.length) throw new Error("No vaults selected.");
+    const changes = selected.filter((v) => !eq(v.trader, newTrader));
+    if (!changes.length) throw new Error("Every selected vault already uses this trader.");
+    const calls = changes.map((v) => ({ vault: v, to: v.pml, value: 0n, data: PML_IFACE.encodeFunctionData("setTrader", [newTrader]) }));
+    const parts = [];
+    for (let i = 0; i < calls.length; i += TRADER_CALLS_PER_TX) parts.push(calls.slice(i, i + TRADER_CALLS_PER_TX));
+    return { scan, newTrader, selected, changes, skipped: selected.length - changes.length, calls, parts };
+  }
+
+  async function onTraderSimulate() {
+    const out = $("traderResult");
+    try {
+      const { scan, changes, skipped, calls } = traderPlan();
+      const provider = providerFor(scan.chainId);
+      out.replaceChildren(h("p", { class: "muted" }, `Simulating ${changes.length} setTrader call(s) as ${short(scan.manager)}…`));
+      await mapLimit(calls, 5, async (c) => {
+        try {
+          await provider.call({ from: scan.manager, to: c.to, data: c.data });
+          c.vault.sim = { ok: true };
+        } catch (e) {
+          c.vault.sim = { ok: false, reason: decodeError(e) };
+          c.vault.selected = false;
+        }
+      });
+      const failed = changes.filter((v) => !v.sim.ok).length;
+      renderTraderVaults();
+      out.replaceChildren(...[
+        h("p", { class: `result ${failed ? "warn" : "ok"}` }, failed ? `${changes.length - failed} OK · ${failed} would revert and were unselected.` : `All ${changes.length} setTrader calls simulate OK as the manager.`),
+        skipped ? h("p", { class: "muted" }, `${skipped} selected vault(s) already use this trader and are skipped.`) : null,
+      ].filter(Boolean));
+    } catch (e) {
+      out.replaceChildren(h("p", { class: "result err" }, `✗ ${e.message}`));
+    }
+  }
+
+  const traderSummary = ({ scan, newTrader, changes }) =>
+    `Set trader to ${newTrader} on ${changes.length} ${networkFor(scan.chainId).chainName} vault(s) managed by ${scan.manager}: ${changes.map((v) => v.name).join(", ")}`;
+
+  function onTraderExport() {
+    const out = $("traderResult");
+    try {
+      const plan = traderPlan();
+      const chain = networkFor(plan.scan.chainId).chainName;
+      const unsimulated = plan.changes.filter((v) => !v.sim?.ok).length;
+      const split = plan.parts.length > 1 ? `This downloads ${plan.parts.length} files (execute them in order).\n\n` : "";
+      if (!window.confirm(`${traderSummary(plan).slice(0, 600)}\n\n${split}${unsimulated ? `${unsimulated} vault(s) are not simulated yet.\n\n` : ""}Download the Safe Transaction Builder file?`)) return;
+      const stamp = Date.now();
+      plan.parts.forEach((part, i) => {
+        const suffix = plan.parts.length > 1 ? ` (part ${i + 1} of ${plan.parts.length})` : "";
+        const payload = {
+          version: "1.0",
+          chainId: String(plan.scan.chainId),
+          createdAt: stamp,
+          meta: {
+            name: `Vault setTrader ${chain} ${new Date().toISOString().slice(0, 10)}${suffix}`,
+            description: `${traderSummary(plan)}${suffix}`.slice(0, 500),
+            txBuilderVersion: "1.16.5",
+            createdFromSafeAddress: plan.scan.manager,
+            createdFromOwnerAddress: "",
+          },
+          transactions: part.map((c) => ({ to: c.to, value: "0", data: c.data, contractMethod: null, contractInputsValues: null })),
+        };
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+        const a = h("a", { href: URL.createObjectURL(blob), download: `vault-settrader-${chain.toLowerCase()}-${stamp}${plan.parts.length > 1 ? `-part${i + 1}of${plan.parts.length}` : ""}.json` });
+        document.body.append(a);
+        a.click();
+        a.remove();
+      });
+      out.replaceChildren(...[
+        h("p", { class: "result ok" }, `Downloaded ${plan.calls.length} setTrader call(s)${plan.parts.length > 1 ? ` in ${plan.parts.length} files` : ""}. In the Safe app (${chain}): Apps → Transaction Builder → drop the file → Create batch → Simulate → Send.`),
+        plan.skipped ? h("p", { class: "muted" }, `${plan.skipped} selected vault(s) already use this trader and were left out.`) : null,
+      ].filter(Boolean));
+    } catch (e) {
+      out.replaceChildren(h("p", { class: "result err" }, `✗ ${e.message}`));
+    }
+  }
+
+  function onTraderAddBatch() {
+    const out = $("traderResult");
+    try {
+      const plan = traderPlan();
+      plan.calls.forEach((c) => addToBatch({ label: `${c.vault.name}: setTrader ${short(c.vault.trader)} → ${short(plan.newTrader)}`, to: c.to, data: c.data, value: 0n, sender: `manager ${short(plan.scan.manager)}`, chainId: plan.scan.chainId }));
+      out.replaceChildren(h("p", { class: "result ok" }, `Added ${plan.calls.length} setTrader call(s) to the ${networkFor(plan.scan.chainId).chainName} batch.`));
+    } catch (e) {
+      out.replaceChildren(h("p", { class: "result err" }, `✗ ${e.message}`));
+    }
+  }
+
+  function setTraderSelection(mode) {
+    if (!state.traderScan) return;
+    state.traderScan.vaults.forEach((v) => {
+      v.selected = mode === "all" ? true : mode === "none" ? false : eq(v.trader, mode);
+    });
+    renderTraderVaults();
+  }
+
   // ---------- wiring ----------
 
   const moduleDefaults = {
@@ -2160,6 +2398,22 @@
     });
     $("safeSelectNone").addEventListener("click", () => setSafeSelection("none"));
     $("safeManualAdd").addEventListener("click", onSafeAddManual);
+    $("traderNetwork").replaceChildren(...[10, 8453, 1, 42161, 137].map((id) => h("option", { value: String(id) }, networkFor(id).chainName)));
+    $("traderManager").value = CFG.dao;
+    const resetTraderScan = () => { state.traderScan = null; renderTraderVaults(); $("traderInfo").replaceChildren(); $("traderResult").replaceChildren(); };
+    $("traderNetwork").addEventListener("change", resetTraderScan);
+    $("traderManager").addEventListener("change", resetTraderScan);
+    $("traderScan").addEventListener("click", onTraderScan);
+    $("traderSimulate").addEventListener("click", onTraderSimulate);
+    $("traderExport").addEventListener("click", onTraderExport);
+    $("traderAddBatch").addEventListener("click", onTraderAddBatch);
+    $("traderSelectAll").addEventListener("click", () => setTraderSelection("all"));
+    $("traderSelectNone").addEventListener("click", () => setTraderSelection("none"));
+    $("traderSelectBy").addEventListener("change", (e) => { if (e.target.value) setTraderSelection(e.target.value); });
+    $("traderNew").addEventListener("input", () => {
+      state.traderScan?.vaults.forEach((v) => { v.sim = null; });
+      renderTraderVaults();
+    });
     $("buildStakingDeposit").addEventListener("click", () => showTx("stakingTx", buildStakingDeposit));
     $("buildStakingWithdrawRewards").addEventListener("click", () => showTx("stakingTx", () => buildStakingOperation("withdrawRewards", "stakingRewardAmount", "withdraw rewards")));
     $("buildStakingWithdrawPenalty").addEventListener("click", () => showTx("stakingTx", () => buildStakingOperation("withdrawPenalty", "stakingPenaltyAmount", "withdraw penalty")));
