@@ -234,7 +234,7 @@ contract InfiniteYieldBootstrapper {
         }
     }
 
-    function _bestAdapter(address registry, address vault) internal view returns (address best) {
+    function _bestAdapter(address registry, address vault) internal virtual returns (address best) {
         (address[] memory adapters, uint256[] memory aprs, bool[] memory ok,) =
             IInfiniteTradingRegistry(registry).getApys(vault);
         uint256 bestApr;
