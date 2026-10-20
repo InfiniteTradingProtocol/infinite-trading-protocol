@@ -1,6 +1,7 @@
 <p align="center">
-  <img src="https://github.com/InfiniteTradingProtocol/infinite-trading-protocol/blob/main/logos/Infinite_Trading_Protocol_Surface.png" alt="Infinite Trading Protocol Logo" width="800" height="400"/>
+  <img src="https://github.com/InfiniteTradingProtocol/infinite-trading-protocol/blob/main/logos/ITP.png" alt="Infinite Trading Protocol Diagram"/>
 </p>
+
 
 ---
 
@@ -13,10 +14,6 @@ Welcome to the official code repository for Infinite Trading Protocol. The proto
 ## Introduction
 
 The Infinite Trading Protocol API is designed to provide developers with the tools necessary for creating advanced trading strategies and integrating blockchain technology into their financial applications.
-
-<p align="center">
-  <img src="https://github.com/InfiniteTradingProtocol/infinite-trading-protocol/blob/main/logos/diagram.png" alt="Infinite Trading Protocol Diagram"/>
-</p>
 
 ## Features
 
