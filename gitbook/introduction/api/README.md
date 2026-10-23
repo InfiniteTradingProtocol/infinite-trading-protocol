@@ -100,7 +100,7 @@ The following endpoints are currently free (no explicit API action fee):
 - `getSymbol`
 - `getTicks`
 - `getTotalYield`
-- `linkGasWallet`
+- `linkGasWallet` (the gas wallet must be the vault's trader and hold at least $1 of native gas on that network)
 - `llmIntrospect`
 - `poolComposition`
 - `registerCEXSubaccount`
