@@ -68,6 +68,6 @@
   wrap_comments = true
 
 [rpc_endpoints]
-  optimism = "https://rpc.ankr.com/optimism/4eeadba2304043bf70e6faa9a41b2123b70e3d1d63660adb047f03335d7627a5"
+  optimism = "${OPTIMISM_RPC_URL}"
   base = "${BASE_RPC_URL}"
   ethereum = "${ETH_RPC_URL}"
