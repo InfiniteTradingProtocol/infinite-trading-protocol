@@ -1,0 +1,89 @@
+{
+  "version": "1.0",
+  "chainId": "10",
+  "createdAt": 1792881359488,
+  "meta": {
+    "name": "Aero v2 optimism setup",
+    "description": "vaults: itp-wsteth, itp-usdc, itp-wbtc",
+    "createdFromSafeAddress": "0xb5dB6e5a301E595B76F40319896a8dbDc277CEfB"
+  },
+  "transactions": [
+    {
+      "to": "0x337Fe450bCD603B1c637AB0F4C073d926a1aE3Dc",
+      "value": "0",
+      "data": "0x32e822e4000000000000000000000000686c9942020a80ee853eaef7663a266ae79919650000000000000000000000000000000000000000000000000000000000000001",
+      "contractMethod": null,
+      "contractInputsValues": null
+    },
+    {
+      "to": "0x337Fe450bCD603B1c637AB0F4C073d926a1aE3Dc",
+      "value": "0",
+      "data": "0x32e822e4000000000000000000000000ea3a2d098c4cd18ef0a9bc70ae3c79175f562e010000000000000000000000000000000000000000000000000000000000000001",
+      "contractMethod": null,
+      "contractInputsValues": null
+    },
+    {
+      "to": "0x4bd84dD4fF4FfbcD2ee08dB22Ce3b9a2eeB10a58",
+      "value": "0",
+      "data": "0x79ba5097",
+      "contractMethod": null,
+      "contractInputsValues": null
+    },
+    {
+      "to": "0x4bd84dD4fF4FfbcD2ee08dB22Ce3b9a2eeB10a58",
+      "value": "0",
+      "data": "0x5f05fec400000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000002000000000000000000000000686c9942020a80ee853eaef7663a266ae7991965000000000000000000000000ea3a2d098c4cd18ef0a9bc70ae3c79175f562e01",
+      "contractMethod": null,
+      "contractInputsValues": null
+    },
+    {
+      "to": "0x337Fe450bCD603B1c637AB0F4C073d926a1aE3Dc",
+      "value": "0",
+      "data": "0xdb06d80e0000000000000000000000004bd84dd4ff4ffbcd2ee08db22ce3b9a2eeb10a580000000000000000000000000000000000000000000000000000000000000001",
+      "contractMethod": null,
+      "contractInputsValues": null
+    },
+    {
+      "to": "0x579f6D1646fDEb59B37a4DC880DbB6857004BafD",
+      "value": "0",
+      "data": "0x79ba5097",
+      "contractMethod": null,
+      "contractInputsValues": null
+    },
+    {
+      "to": "0x579f6D1646fDEb59B37a4DC880DbB6857004BafD",
+      "value": "0",
+      "data": "0x5f05fec400000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000001000000000000000000000000686c9942020a80ee853eaef7663a266ae7991965",
+      "contractMethod": null,
+      "contractInputsValues": null
+    },
+    {
+      "to": "0x337Fe450bCD603B1c637AB0F4C073d926a1aE3Dc",
+      "value": "0",
+      "data": "0xdb06d80e000000000000000000000000579f6d1646fdeb59b37a4dc880dbb6857004bafd0000000000000000000000000000000000000000000000000000000000000001",
+      "contractMethod": null,
+      "contractInputsValues": null
+    },
+    {
+      "to": "0x6E276D140230C6f967ee2c79AEd69C90A24e115D",
+      "value": "0",
+      "data": "0x79ba5097",
+      "contractMethod": null,
+      "contractInputsValues": null
+    },
+    {
+      "to": "0x6E276D140230C6f967ee2c79AEd69C90A24e115D",
+      "value": "0",
+      "data": "0x5f05fec400000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000002000000000000000000000000686c9942020a80ee853eaef7663a266ae7991965000000000000000000000000ea3a2d098c4cd18ef0a9bc70ae3c79175f562e01",
+      "contractMethod": null,
+      "contractInputsValues": null
+    },
+    {
+      "to": "0x337Fe450bCD603B1c637AB0F4C073d926a1aE3Dc",
+      "value": "0",
+      "data": "0xdb06d80e0000000000000000000000006e276d140230c6f967ee2c79aed69c90a24e115d0000000000000000000000000000000000000000000000000000000000000001",
+      "contractMethod": null,
+      "contractInputsValues": null
+    }
+  ]
+}

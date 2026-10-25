@@ -1,0 +1,40 @@
+{
+  "version": "1.0",
+  "chainId": "8453",
+  "createdAt": 1792881385782,
+  "meta": {
+    "name": "Aero v2 base setup",
+    "description": "vaults: aero-usdc",
+    "createdFromSafeAddress": "0xb5dB6e5a301E595B76F40319896a8dbDc277CEfB"
+  },
+  "transactions": [
+    {
+      "to": "0xA7e2E4Cb6B4938AAaDE3EbDEDe373205818129fC",
+      "value": "0",
+      "data": "0x79ba5097",
+      "contractMethod": null,
+      "contractInputsValues": null
+    },
+    {
+      "to": "0xA7e2E4Cb6B4938AAaDE3EbDEDe373205818129fC",
+      "value": "0",
+      "data": "0x55a68ed3000000000000000000000000d424ba8ca9d4e278753de76651a0095451e65cd1",
+      "contractMethod": null,
+      "contractInputsValues": null
+    },
+    {
+      "to": "0xA7e2E4Cb6B4938AAaDE3EbDEDe373205818129fC",
+      "value": "0",
+      "data": "0x910730a80000000000000000000000000000000000000000000000000000000000000001",
+      "contractMethod": null,
+      "contractInputsValues": null
+    },
+    {
+      "to": "0xB60ce95161506EeC22A2D68A784DD21cf78adcA9",
+      "value": "0",
+      "data": "0xdb06d80e000000000000000000000000a7e2e4cb6b4938aaade3ebdede373205818129fc0000000000000000000000000000000000000000000000000000000000000001",
+      "contractMethod": null,
+      "contractInputsValues": null
+    }
+  ]
+}

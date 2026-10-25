@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Verified AeroZap source</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    main.container { max-width: 1120px; margin: 0 auto; padding: 24px; overflow-wrap: anywhere; }
+    h1 { line-height: 1.25; }
+    #sourceFile { min-width: 0; max-width: 100%; width: 100%; }
+    #sourceLinks { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+    #copySource { margin-top: 12px; }
+    #sourceCode {
+      white-space: pre; overflow: auto; max-height: 75vh; padding: 16px;
+      border: 1px solid var(--border); border-radius: 8px; background: var(--field);
+      overflow-wrap: normal;
+    }
+    @media (max-width: 600px) { main.container { padding: 16px; } h1 { font-size: 24px; } }
+  </style>
+  <script src="contract-source.js" defer></script>
+</head>
+<body>
+  <main class="container">
+    <h1>Verified AeroZap source</h1>
+    <p id="sourceStatus" role="status">Loading published verification…</p>
+    <p id="sourceLocation"></p>
+    <div id="sourceLinks" class="actions"></div>
+    <label>Verified compilation source <select id="sourceFile" disabled></select></label>
+    <button id="copySource" class="btn" disabled>Copy source</button>
+    <p id="copyStatus" role="status"></p>
+    <pre id="sourceCode" tabindex="0" aria-label="Verified contract source code"></pre>
+  </main>
+</body>
+</html>

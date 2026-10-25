@@ -7,3 +7,7 @@
 
 # Private plans live outside git (~/.copilot/skills/infinite-trading-plans)
 docs/future-plans/
+
+# Isolated Aero build output
+/contracts/out-aero/
+/contracts/cache-aero/

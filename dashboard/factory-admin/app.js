@@ -2312,6 +2312,7 @@
   };
 
   const moduleDescriptions = {
+    aero: "Discover Aero factory vaults (v1 Base, v2 Optimism), verify ownership and prepare simulated DAO Safe management batches.",
     velodrome: "Inspect vaults, manage permissions and prepare factory operations on Optimism.",
     uniswap: "Review concentrated-liquidity vaults, scan positions and prepare compounder operations.",
     "uniswap-deploy": "Configure and deploy Uniswap V3 or V4 auto compounders with your connected wallet.",

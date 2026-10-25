@@ -21,6 +21,18 @@
   fuzz = { runs = 10_000 }
   verbosity = 4
 
+# Isolated classic Aero automation module; no live forks or legacy vault upgrades.
+[profile.aero]
+  evm_version = "cancun"
+  src = "src/aero"
+  test = "test/aero"
+  script = "script/aero"
+  skip = []
+  optimizer_runs = 200
+  out = "out-aero"
+  cache_path = "cache-aero"
+  fuzz = { runs = 512 }
+
 # InfiniteVaultStrategy (Velodrome vaults): must fit EIP-170 and match the Cancun opcodes of the live implementation.
 [profile.velodrome]
   evm_version = "cancun"

@@ -119,7 +119,7 @@ def main():
     Main function to fetch candle data for multiple trading pairs and timeframes.
     """
     # List of trading pairs and their corresponding timeframes
-    pairs = ['BTC-USD', 'ETH-USD', 'POL-USD', 'ARB-USD', 'VELO-USD', 'AERO-USD', 'LINK-USD', 'SOL-USD']
+    pairs = ['BTC-USD', 'ETH-USD', 'POL-USD', 'ARB-USD', 'AERO-USD', 'LINK-USD', 'SOL-USD']
     timeframes = ['1h'] * len(pairs)  # All pairs use the 1-hour timeframe
     exchange = 'coinbase'
     numcandles = 300

@@ -16,10 +16,12 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.4/ethers.umd.min.js"
           integrity="sha384-6Zl0Pc8zjSz8KvmNeXRvUQgY4ryFb+BwDvKCmLYcBME0joAaru491tQgi9B7zsMM"
           crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-  <script src="config.js?v=13"></script>
+  <script src="config.js?v=15"></script>
   <script src="deployment.js?v=1" defer></script>
-  <script src="app.js?v=21" defer></script>
+  <script src="app.js?v=22" defer></script>
   <script src="yield-vault.js?v=2" defer></script>
+  <script src="aero-core.js?v=2" defer></script>
+  <script src="aero.js?v=2" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to dashboard</a>
@@ -48,6 +50,7 @@
       <div class="nav-label">Workspace</div>
       <nav class="modules" id="modules" aria-label="Contract families and global tools">
         <button data-module="velodrome" class="active" aria-current="true">Velodrome Auto Compounder</button>
+        <button data-module="aero">Aero Auto Compounders</button>
         <button data-module="uniswap">Uniswap V3 Auto Compounders</button>
         <button data-module="uniswap-deploy">Uniswap Deploy</button>
         <button data-module="yield">USD Yield Vault</button>
@@ -77,6 +80,7 @@
     <button data-module="velodrome" data-tab="upgrades">Upgrades</button>
     <button data-module="velodrome" data-tab="roles">Roles</button>
     <button data-module="velodrome" data-tab="create">Create vault</button>
+    <button data-module="aero" data-tab="aero">Factories &amp; vaults</button>
     <button data-module="uniswap" data-tab="v3">Vaults</button>
     <button data-module="uniswap" data-tab="v3-scan">Scans</button>
     <button data-module="uniswap-deploy" data-tab="deploy">Deploy V3 / V4</button>
@@ -92,6 +96,18 @@
 
   <main id="main" tabindex="-1">
     <div id="notice" class="notice hidden" role="status"></div>
+
+    <section id="tab-aero" class="tab" data-module="aero">
+      <div class="card">
+        <div class="row between"><h3>Aero factory registry</h3><button id="aeroRefresh" class="btn">Refresh on-chain state</button></div>
+        <p class="muted">Classic-pool compounders: Aero v2 on Base and Optimism (v1 Base and Optimism contracts are superseded). Read-only inspection and simulated DAO Safe batches only; this module never sends transactions.</p>
+        <label>Network <select id="aeroNetwork"><option value="8453">Base · Aero v2 · AERO / USDC</option><option value="10">Optimism · Aero v2 · ITP / wstETH, ITP / USDC, ITP / WBTC</option></select></label>
+      </div>
+      <div id="aeroStatus" role="status" aria-live="polite"></div>
+      <div id="aeroFactory"></div>
+      <div id="aeroVaults"></div>
+      <div id="aeroVault"></div>
+    </section>
 
     <section id="tab-overview" class="tab active" data-module="velodrome">
       <div class="grid" id="overviewCards"><div class="card loading">Loading on-chain state…</div></div>

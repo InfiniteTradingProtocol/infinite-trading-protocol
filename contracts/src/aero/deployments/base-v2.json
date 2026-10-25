@@ -1,0 +1,61 @@
+{
+  "version": "v2",
+  "chain": "base",
+  "chainId": 8453,
+  "deployedAt": "2026-10-24",
+  "deployer": "0xE6C312d661bE5e3eC022e2F18e084713A434A340",
+  "dao": "0xb5dB6e5a301E595B76F40319896a8dbDc277CEfB",
+  "treasury": "0xb5dB6e5a301E595B76F40319896a8dbDc277CEfB",
+  "defaultKeeper": "0xE6C312d661bE5e3eC022e2F18e084713A434A340",
+  "oracle": "0x4751B11220919d8A76Bf3998d85Ecb6524D0Ed82",
+  "factory": "0xB60ce95161506EeC22A2D68A784DD21cf78adcA9",
+  "implementation": "0x3f81c3E6cDaB6139E62fec8800F6093b9b2405C0",
+  "zap": "0xAdF1288917495F806b6014f354638F905B9Ce3fa",
+  "vaults": {
+    "aero-usdc": "0xA7e2E4Cb6B4938AAaDE3EbDEDe373205818129fC"
+  },
+  "rewardRoutes": {
+    "aero-usdc": []
+  },
+  "gauges": {
+    "aero-usdc": "0xd424BA8ca9d4E278753DE76651a0095451e65cD1"
+  },
+  "fees": {
+    "daoBps": 200,
+    "strategistBps": 0,
+    "keeperBps": 50,
+    "exitBps": 0,
+    "profitUnlockSeconds": 86400
+  },
+  "transactions": [
+    {
+      "step": "deploy AeroTwapOracle",
+      "hash": "0xfaf5d59132432e3008be674599d5d551c7149408c3986930b6b31ef4412aaa5c"
+    },
+    {
+      "step": "deploy AeroFactoryV2",
+      "hash": "0xed3ae8330fca1348e2e925f01961ac2789728f4eba03b2055aa3c7d043ff59ae"
+    },
+    {
+      "step": "deploy AeroZapV2",
+      "hash": "0xd4f56504def35f39d97c6c892621e389cd65509a1f0e35ecebdff98a28386f56"
+    },
+    {
+      "step": "createVault aero-usdc",
+      "hash": "0x890ca6de3f90a55819737b8f2cbe614401aeb15df92abe5c384ceaef05d7f685"
+    },
+    {
+      "step": "oracle.update aero-usdc",
+      "hash": "0x0377c5324f9192ad643cd59bd49ddf5a04093582047b7c452de1ae9f9bfc23e9"
+    },
+    {
+      "step": "transferOwnership aero-usdc",
+      "hash": "0xfddd6df95adf0f080b51aa97fedea0478ce85a33103edc8153f22367e42d9355"
+    }
+  ],
+  "setup": "DAO Safe batch in safe-batches/base-v2-setup.json (pending until executed)",
+  "audit": "../audits/2026-10-24_Aero_v1_v2_UltraCode_Audit.pdf",
+  "pools": {
+    "aero-usdc": "0xF634058dC94e6BF8e828E27621320C423bC8B18E"
+  }
+}

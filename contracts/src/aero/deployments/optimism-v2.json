@@ -1,0 +1,97 @@
+{
+  "version": "v2",
+  "chain": "optimism",
+  "chainId": 10,
+  "deployedAt": "2026-10-24",
+  "deployer": "0xE6C312d661bE5e3eC022e2F18e084713A434A340",
+  "dao": "0xb5dB6e5a301E595B76F40319896a8dbDc277CEfB",
+  "treasury": "0xb5dB6e5a301E595B76F40319896a8dbDc277CEfB",
+  "defaultKeeper": "0xE6C312d661bE5e3eC022e2F18e084713A434A340",
+  "oracle": "0x351F1F1aBf8cc65AacD13cAA19bB4639F7C0b5bf",
+  "factory": "0x337Fe450bCD603B1c637AB0F4C073d926a1aE3Dc",
+  "implementation": "0xD24D4D249D526C8Bf8dfb4682D11E3f9c6337E9a",
+  "zap": "0x95E97Def5456d5860a26DD3108A71Dd13b3E3592",
+  "vaults": {
+    "itp-wsteth": "0x4bd84dD4fF4FfbcD2ee08dB22Ce3b9a2eeB10a58",
+    "itp-usdc": "0x579f6D1646fDEb59B37a4DC880DbB6857004BafD",
+    "itp-wbtc": "0x6E276D140230C6f967ee2c79AEd69C90A24e115D"
+  },
+  "rewardRoutes": {
+    "itp-wsteth": [
+      "0x686c9942020a80EE853EaEF7663A266ae7991965",
+      "0xeA3a2D098C4cd18EF0a9bc70aE3C79175f562e01"
+    ],
+    "itp-usdc": [
+      "0x686c9942020a80EE853EaEF7663A266ae7991965"
+    ],
+    "itp-wbtc": [
+      "0x686c9942020a80EE853EaEF7663A266ae7991965",
+      "0xeA3a2D098C4cd18EF0a9bc70aE3C79175f562e01"
+    ]
+  },
+  "gauges": {},
+  "fees": {
+    "daoBps": 200,
+    "strategistBps": 0,
+    "keeperBps": 50,
+    "exitBps": 0,
+    "profitUnlockSeconds": 86400
+  },
+  "transactions": [
+    {
+      "step": "deploy AeroTwapOracle",
+      "hash": "0x18a0831c8bea2ffaa859cc973f4dd4d5dc4d6a01e9ef1d1568152b9c8375ea9b"
+    },
+    {
+      "step": "deploy AeroFactoryV2",
+      "hash": "0xf2772b7a7b06dcc4fab94ecaab1f6a3a27296bf61dfe0b97c07a91d3daee2ffe"
+    },
+    {
+      "step": "deploy AeroZapV2",
+      "hash": "0x7ec4caf2b2c7305a8bbfc70758e6baafc8c21f5e93ca163273c58ead73094041"
+    },
+    {
+      "step": "createVault itp-wsteth",
+      "hash": "0x6045c5778d0d69c2bd71406aa00c2b28c8566a4be676b4a2eeb5840a7db530c3"
+    },
+    {
+      "step": "oracle.update itp-wsteth",
+      "hash": "0xb662910e1e0e7cb09b4f2fa8eaf39d3b64e0ac0678d867fc52ef9134780ea204"
+    },
+    {
+      "step": "transferOwnership itp-wsteth",
+      "hash": "0xfed5cb21e6ec6a61d23bba6ea778dc14fe936f1e966faaaa9a2c0a2d5fa13154"
+    },
+    {
+      "step": "createVault itp-usdc",
+      "hash": "0x327d673a07613ecfc39eca02e3019bee623ee8b0a81ccbfd7e5ac2039547819a"
+    },
+    {
+      "step": "oracle.update itp-usdc",
+      "hash": "0xb9c5bf4a7c12f9256f36bd8fa27dd331e2b15467217ce8dfaefc09ae6582eca1"
+    },
+    {
+      "step": "transferOwnership itp-usdc",
+      "hash": "0xb29487ed35fe4134430a29154ded67123ed64b92bc969551d33675aa4d1d96d6"
+    },
+    {
+      "step": "createVault itp-wbtc",
+      "hash": "0x66929439629016034bfc88904ef6d8753767d60260beba56bfdaebc220d500a1"
+    },
+    {
+      "step": "oracle.update itp-wbtc",
+      "hash": "0x0a064e8cdda5ff8fa20a0731f1ed8eef2ce3ad979246e917eeb95be4c0ce4106"
+    },
+    {
+      "step": "transferOwnership itp-wbtc",
+      "hash": "0x40192246058422bf9b3bd0242b7b2afd4bf53fa4c5d362799cc3469107f375c0"
+    }
+  ],
+  "setup": "DAO Safe batch in safe-batches/optimism-v2-setup.json (pending until executed)",
+  "audit": "../audits/2026-10-24_Aero_v1_v2_UltraCode_Audit.pdf",
+  "pools": {
+    "itp-wsteth": "0x76817cf226aa94b164295AED4f62e7a1EEd41d36",
+    "itp-usdc": "0xeA3a2D098C4cd18EF0a9bc70aE3C79175f562e01",
+    "itp-wbtc": "0x96E354C66e56c6083064d30FCE5FeD009C3a6651"
+  }
+}

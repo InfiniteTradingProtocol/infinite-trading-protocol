@@ -85,6 +85,79 @@ window.ITP_CONFIG = {
   },
 
   factory: "0x88E883a28C8C2f7524C7aAd0a44309E190337D5b",
+  aero: {
+    // Base and Optimism run Aero v2, which supersedes v1 on both (v1 stays on Ethereum and Robinhood).
+    8453: {
+      version: 2,
+      factory: "0xB60ce95161506EeC22A2D68A784DD21cf78adcA9",
+      oracle: "0x4751B11220919d8A76Bf3998d85Ecb6524D0Ed82",
+      implementation: "0x3f81c3E6cDaB6139E62fec8800F6093b9b2405C0",
+      vaults: [{
+        name: "AERO / USDC",
+        address: "0xA7e2E4Cb6B4938AAaDE3EbDEDe373205818129fC",
+        zap: "0xAdF1288917495F806b6014f354638F905B9Ce3fa",
+        symbol: "acAERO-USDC",
+        pool: "0xF634058dC94e6BF8e828E27621320C423bC8B18E",
+        gauge: "0xd424BA8ca9d4E278753DE76651a0095451e65cD1",
+        token0: { symbol: "AERO", address: "0x3f5bF3EdAc59d650D8fDf9657a71F2f904A3a4Ee", decimals: 18 },
+        token1: { symbol: "USDC", address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", decimals: 6 },
+        // Reward AERO is token0: no route. Gauge attached and staking enabled by the DAO batch.
+        route: [],
+      }],
+      routePools: [],
+      // Superseded Aero v1 on Base (empty). Listed for reference only; never managed or listed to users.
+      legacy: {
+        factory: "0xf5cf6231b21B1De1dedB00a49B98bd0a6867C7AB",
+        zap: "0x64Bf868a02CfA1bce82a0711eB090E28a9dc8688",
+        vaults: [
+          { name: "AERO / USDC (v1)", address: "0x8a69C3b16FECd6865210858D3E67B948BF71395f" },
+        ],
+      },
+    },
+    10: {
+      version: 2,
+      factory: "0x337Fe450bCD603B1c637AB0F4C073d926a1aE3Dc",
+      oracle: "0x351F1F1aBf8cc65AacD13cAA19bB4639F7C0b5bf",
+      implementation: "0xD24D4D249D526C8Bf8dfb4682D11E3f9c6337E9a",
+      vaults: [{
+        name: "ITP / wstETH",
+        address: "0x4bd84dD4fF4FfbcD2ee08dB22Ce3b9a2eeB10a58",
+        zap: "0x95E97Def5456d5860a26DD3108A71Dd13b3E3592",
+        symbol: "acITP-wstETH",
+        pool: "0x76817cf226aa94b164295AED4f62e7a1EEd41d36",
+        route: ["0x686c9942020a80EE853EaEF7663A266ae7991965", "0xeA3a2D098C4cd18EF0a9bc70aE3C79175f562e01"],
+      }, {
+        name: "ITP / USDC",
+        address: "0x579f6D1646fDEb59B37a4DC880DbB6857004BafD",
+        zap: "0x95E97Def5456d5860a26DD3108A71Dd13b3E3592",
+        symbol: "acITP-USDC",
+        pool: "0xeA3a2D098C4cd18EF0a9bc70aE3C79175f562e01",
+        token0: { symbol: "ITP", address: "0x0a7B751FcDBBAA8BB988B9217ad5Fb5cfe7bf7A0", decimals: 18 },
+        token1: { symbol: "USDC", address: "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85", decimals: 6 },
+        route: ["0x686c9942020a80EE853EaEF7663A266ae7991965"],
+      }, {
+        name: "ITP / WBTC",
+        address: "0x6E276D140230C6f967ee2c79AEd69C90A24e115D",
+        zap: "0x95E97Def5456d5860a26DD3108A71Dd13b3E3592",
+        symbol: "acITP-WBTC",
+        pool: "0x96E354C66e56c6083064d30FCE5FeD009C3a6651",
+        token0: { symbol: "ITP", address: "0x0a7B751FcDBBAA8BB988B9217ad5Fb5cfe7bf7A0", decimals: 18 },
+        token1: { symbol: "WBTC", address: "0x68f180fcCe6836688e9084f035309E29Bf0A2095", decimals: 8 },
+        route: ["0x686c9942020a80EE853EaEF7663A266ae7991965", "0xeA3a2D098C4cd18EF0a9bc70aE3C79175f562e01"],
+      }],
+      // DAO-approved reward-route pools (xAERO/USDC, ITP/USDC); presets for setApprovedPool / setRewardRoute.
+      routePools: ["0x686c9942020a80EE853EaEF7663A266ae7991965", "0xeA3a2D098C4cd18EF0a9bc70aE3C79175f562e01"],
+      // Superseded Aero v1 on Optimism (all empty). Listed for reference only; never managed or listed to users.
+      legacy: {
+        factory: "0x8f378C71368Fb50084c2A540592502F0b1Ef8787",
+        zap: "0xb797413B59882f42B1Ceb18214911d6eA189c561",
+        vaults: [
+          { name: "ITP / wstETH (v1)", address: "0xA15a7219EE74630AA7B5B0413C3082f2b775220D" },
+          { name: "ITP / USDC (v1)", address: "0xD24a64a6387bb53A5682818564467E75a118eEf0" },
+        ],
+      },
+    },
+  },
   dao: "0xb5dB6e5a301E595B76F40319896a8dbDc277CEfB",
   multicall3: "0xcA11bde05977b3631167028862bE2a173976CA11",
   velodromeVoter: "0x41C914ee0c7E1A5edCD0295623e6dC557B5aBf3C",

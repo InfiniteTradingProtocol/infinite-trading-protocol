@@ -1,0 +1,28 @@
+{
+  "version": "v1",
+  "status": "superseded on Optimism and Base by v2 (2026-10-24); all listed vaults empty",
+  "source": "../AeroFactory.sol, ../AeroVault.sol, ../AeroZap.sol",
+  "optimism": {
+    "factory": "0x8f378C71368Fb50084c2A540592502F0b1Ef8787",
+    "zap": "0xb797413B59882f42B1Ceb18214911d6eA189c561",
+    "vaults": {
+      "itp-wsteth": "0xA15a7219EE74630AA7B5B0413C3082f2b775220D",
+      "itp-usdc": "0xD24a64a6387bb53A5682818564467E75a118eEf0"
+    }
+  },
+  "base": {
+    "factory": "0xf5cf6231b21B1De1dedB00a49B98bd0a6867C7AB",
+    "zap": "0x64Bf868a02CfA1bce82a0711eB090E28a9dc8688",
+    "vaults": {
+      "aero-usdc": "0x8a69C3b16FECd6865210858D3E67B948BF71395f"
+    }
+  },
+  "ethereum": {
+    "factory": "0x90b2D147ab7d4979168Ec0C425FF460E2ebFa5EA",
+    "status": "active v1"
+  },
+  "robinhood-4663": {
+    "factory": "0x9b62904003e52D4019daeA89dC97f5FE817ffbDF",
+    "status": "active v1"
+  }
+}
