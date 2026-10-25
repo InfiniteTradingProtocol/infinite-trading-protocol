@@ -115,10 +115,15 @@ test("discovery pages remain bounded even for huge on-chain counts", () => {
   assert.throws(() => core.page(100n, 0n, 51));
 });
 
-test("registry contains newest factories and never retired Base deployments", () => {
+test("registry lists the v2 factories; superseded v1 contracts are legacy-only", () => {
   const window = {};
   vm.runInNewContext(source("config.js"), { window });
-  assert.equal(window.ITP_CONFIG.aero[8453].factory, "0xf5cf6231b21B1De1dedB00a49B98bd0a6867C7AB");
+  const base = window.ITP_CONFIG.aero[8453];
+  assert.equal(base.version, 2);
+  assert.equal(base.factory, "0xB60ce95161506EeC22A2D68A784DD21cf78adcA9");
+  assert.equal(base.vaults[0].address, "0xA7e2E4Cb6B4938AAaDE3EbDEDe373205818129fC");
+  assert.equal(base.legacy.factory, "0xf5cf6231b21B1De1dedB00a49B98bd0a6867C7AB");
+  assert.ok(!base.vaults.some((v) => core.eq(v.address, base.implementation)));
   const op = window.ITP_CONFIG.aero[10];
   assert.equal(op.version, 2);
   assert.equal(op.factory, "0x337Fe450bCD603B1c637AB0F4C073d926a1aE3Dc");
@@ -126,15 +131,21 @@ test("registry contains newest factories and never retired Base deployments", ()
   assert.equal(op.vaults[0].address, "0x4bd84dD4fF4FfbcD2ee08dB22Ce3b9a2eeB10a58");
   assert.equal(op.vaults[0].zap, "0x95E97Def5456d5860a26DD3108A71Dd13b3E3592");
   assert.ok(!op.vaults.some((v) => core.eq(v.address, op.implementation)), "implementation is never listed as a vault");
-  assert.equal(window.ITP_CONFIG.aero[8453].version, undefined);
+  assert.equal(JSON.stringify(op.vaults.map((v) => v.address)), JSON.stringify([
+    "0x4bd84dD4fF4FfbcD2ee08dB22Ce3b9a2eeB10a58", "0x579f6D1646fDEb59B37a4DC880DbB6857004BafD", "0x6E276D140230C6f967ee2c79AEd69C90A24e115D",
+  ]));
   // Superseded Optimism v1 contracts appear only as labelled legacy references.
   const live = JSON.stringify({ ...op, legacy: undefined }).toLowerCase();
   for (const old of [factoryAddress, vaultAddress, "0xb797413B59882f42B1Ceb18214911d6eA189c561", "0xD24a64a6387bb53A5682818564467E75a118eEf0"]) {
     assert.ok(!live.includes(old.toLowerCase()));
     assert.ok(JSON.stringify(op.legacy).toLowerCase().includes(old.toLowerCase()));
   }
-  assert.equal(window.ITP_CONFIG.aero[8453].vaults[0].address, "0x8a69C3b16FECd6865210858D3E67B948BF71395f");
-  assert.equal(window.ITP_CONFIG.aero[8453].vaults[0].zap, "0x64Bf868a02CfA1bce82a0711eB090E28a9dc8688");
+  assert.equal(base.vaults[0].zap, "0xAdF1288917495F806b6014f354638F905B9Ce3fa");
+  const baseLive = JSON.stringify({ ...base, legacy: undefined }).toLowerCase();
+  for (const old of ["0x8a69C3b16FECd6865210858D3E67B948BF71395f", "0x64Bf868a02CfA1bce82a0711eB090E28a9dc8688", "0xf5cf6231b21B1De1dedB00a49B98bd0a6867C7AB"]) {
+    assert.ok(!baseLive.includes(old.toLowerCase()));
+    assert.ok(JSON.stringify(base.legacy).toLowerCase().includes(old.toLowerCase()));
+  }
   const registry = JSON.stringify(window.ITP_CONFIG.aero).toLowerCase();
   for (const old of ["0x1bbb1d4a0184fca8b8c1076366e3148b4347cd51", "0x6223c4c645301e14c23189e4e4b8757396ea85e5", "0xe06e1bd3b29b999c027dce40bed147f97d3299e2"]) {
     assert.ok(!registry.includes(old));
