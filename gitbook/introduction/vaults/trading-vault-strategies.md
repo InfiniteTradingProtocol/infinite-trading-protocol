@@ -15,6 +15,19 @@ These vaults are connected to Infinite Trading Cloud strategy infrastructure and
 - **Neutral/cash states**: preserve optionality during weak conditions
 - **Pair-specific automation**: asset-focused strategy execution with bounded trade parameters
 - **Yield overlays**: lend/compound integrations where enabled
+- **Leader rotation**: rank a basket by relative strength, buy short pullbacks in the current leaders with volatility-based targets and stops, and keep idle stablecoins earning lending yield
+
+## Example: Agentic Leader Rotation (Base)
+
+[Agentic Leader Rotation (ALEAD)](https://app.dhedge.org/pool/0x48b227d228d8eade9e2de04e0b21319874e9fc15)
+rotates between cbBTC, WETH, AERO and MORPHO. Every few hours it ranks them by how far each
+is stretched above its recent average, and only buys when one of the leaders dips into oversold.
+Each position has a profit target, a stop and a maximum holding time, so the vault is in USDC most
+of the time, and that USDC is supplied to Aave V3.
+
+The rule was chosen to work across many assets and both bull and bear periods rather than to
+maximise one backtest, and its costs were measured on the chain it trades. Past results do not
+predict future returns.
 
 ## Operational architecture
 
