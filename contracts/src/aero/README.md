@@ -8,8 +8,12 @@ deployments, audits and Safe setup batches. Version history: [CHANGELOG.md](CHAN
 | **v2** | [`v2/`](v2) `AeroTwapOracle`, `AeroFactoryV2`, `AeroVaultV2` (EIP-1167 clones), `AeroZapV2` | **Current** on Optimism and Base |
 | v1 | `AeroFactory.sol`, `AeroVault.sol`, `AeroZap.sol`, `AeroChains.sol`, `IAero.sol` | Superseded on Optimism and Base (all vaults empty); still deployed on Ethereum and Robinhood |
 
-Audit: [audits/2026-10-24_Aero_v1_v2_UltraCode_Audit.pdf](audits/2026-10-24_Aero_v1_v2_UltraCode_Audit.pdf)
-(v1 audit, Velodrome comparison, v2 adversarial review and fixes).
+Audits:
+- **Current:** [audits/2026-10-30_Auto-Compounder_Security_Review.md](audits/2026-10-30_Auto-Compounder_Security_Review.md)
+  ([PDF](audits/2026-10-30_Auto-Compounder_Security_Review.pdf)). Aero v2 compared with the Velodrome (Beefy-derived)
+  vault, with every test and its result, bytecode checks, all deployed addresses and live vaults to test.
+- [audits/2026-10-24_Aero_v1_v2_UltraCode_Audit.pdf](audits/2026-10-24_Aero_v1_v2_UltraCode_Audit.pdf): v1 audit,
+  v2 adversarial review and fixes.
 
 ## v2 deployments
 

@@ -2,6 +2,13 @@
 
 Newest first. Addresses and transactions: [deployments/](deployments). Audits: [audits/](audits).
 
+## Security review (2026-10-30)
+
+No code change. New report `audits/2026-10-30_Auto-Compounder_Security_Review.md` (and PDF) compares Aero v2 with
+the Velodrome vault and re-runs every test on live state: Aero v2 unit 33/33, Aero v2 forks 4/4, Velodrome forks 12/12;
+deployed bytecode identical to source. All 8 Aero v2 contracts are now source-verified (Etherscan, Basescan, Sourcify, Blockscout); the vault
+clones show as proxies. Open item: first harvests.
+
 ## v2.0.0 (2026-10-24)
 
 Deployed on Optimism (factory `0x337Fe450bCD603B1c637AB0F4C073d926a1aE3Dc`) and Base (factory
