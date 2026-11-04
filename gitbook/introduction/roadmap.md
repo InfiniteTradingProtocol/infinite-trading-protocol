@@ -37,6 +37,13 @@ This roadmap summarizes active direction from product and infrastructure workstr
 - execution reliability hardening for strategy automation
 - continued multi-network strategy deployment support
 
+## 2026 security and efficiency goals
+
+- **Bastion**: production infrastructure and API hardening, with audited access and real-time sign-in alerts
+- **Keystone**: signing keys held in non-exportable, hardware-backed key storage
+- **Convoy**: related on-chain actions batched into single transactions, sent in strict per-wallet order
+- **Featherweight**: fewer paid API and RPC calls through shared caching, batched reads and leaner services
+
 ## Ecosystem growth direction
 
 - expansion of ITP-aligned auto-compounder and vault families
