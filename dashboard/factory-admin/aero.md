@@ -112,9 +112,9 @@ Vault inspection includes **Open verified deployed source**, opening a separate
 window with the exact Sourcify-verified compilation, dependency file selector,
 Copy button, explorer code link and repository location
 `contracts/src/aero/v2/AeroZapV2.sol` (Optimism and Base v2; the v1 `AeroZap.sol`
-snapshot is kept for the superseded v1 zaps). The v2 zaps were
-not yet verified on Sourcify when this was written, so the viewer reports
-verification as unavailable until it is. The viewer requires creation/runtime matches, validates
+snapshot is kept for the superseded v1 zaps). Both v2 zaps (Optimism
+`0x95E9…3592`, Base `0xAdF1…e3fa`) are fully verified on Sourcify since 2026-10-31.
+The viewer requires creation/runtime matches, validates
 the contract name and compares source SHA-256 with the local repository snapshot.
 Changing either maintained Solidity file requires updating its snapshot hash in
 `contract-source.js`; the focused test detects drift. The GitHub main link can be
@@ -122,6 +122,23 @@ unavailable until local source changes are pushed.
 
 AeroZap is immutable and has no administrative owner, upgrade function, or
 management setters. The dashboard deliberately does not invent owner controls.
+
+## Zaps card
+
+After the factory validates, a read-only **Zaps** card lists each configured zap
+on the network (one per factory; Optimism's serves all three ITP vaults):
+
+- address, and its immutable `factory()` checked against the configured factory
+  (a mismatch is shown in red);
+- deployment tx, block, deployer and verification date from Sourcify, accepted
+  only from a full creation + runtime match for that exact chain and address
+  (`zapDeployment` in `aero-core.js`); the card still renders if Sourcify fails;
+- "Admin settings: none" and the verified-source link;
+- per vault: `factory.isVault` (the zap reverts for anything else) and the
+  settings zap users pay or are bounded by (exit fee, max slippage, max swap,
+  max TWAP deviation; v1: entry/exit fee) plus the factory DAO fee. **Manage**
+  opens the normal vault panel, where the DAO changes them through a simulated
+  Safe batch. The card itself builds no transactions.
 
 ## Focused offline validation
 

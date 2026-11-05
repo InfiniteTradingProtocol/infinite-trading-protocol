@@ -34,7 +34,7 @@ class Element {
 }
 
 function harness(overrides = {}) {
-  const ids = Object.fromEntries(["aeroRefresh", "aeroNetwork", "aeroStatus", "aeroFactory", "aeroVaults", "aeroVault"]
+  const ids = Object.fromEntries(["aeroRefresh", "aeroNetwork", "aeroStatus", "aeroFactory", "aeroZaps", "aeroVaults", "aeroVault"]
     .map((id) => [id, new Element("div")]));
   ids.aeroNetwork.value = "10";
   const moduleButton = new Element("button");
@@ -84,9 +84,9 @@ function harness(overrides = {}) {
       }
     },
   };
-  const window = { ITP_ADMIN: A, ITP_CONFIG: cfg, ITP_AERO: core, ethers };
+  const window = { ITP_ADMIN: A, ITP_CONFIG: cfg, ITP_AERO: core, ethers, fetch: overrides.fetch };
   vm.runInNewContext(source("aero.js"), {
-    window, document: { getElementById: (id) => ids[id], querySelector: () => moduleButton },
+    window, AbortSignal, document: { getElementById: (id) => ids[id], querySelector: () => moduleButton },
   });
   return {
     ids, batches, simulations, f, v,
@@ -474,4 +474,52 @@ test("v2 vault registered with another factory is unmanageable", async () => {
   await h.inspect();
   assert.match(h.ids.aeroVault.textContent, /management unavailable/);
   assert.equal(h.ids.aeroVault.all((e) => e.tag === "button").length, 0);
+});
+
+const zapTx = `0x${"7".repeat(64)}`;
+const sourcify = (patch = {}) => ({
+  chainId: "10", address: other, creationMatch: "match", runtimeMatch: "match", verifiedAt: "2026-10-31T01:32:00Z",
+  deployment: { transactionHash: zapTx, blockNumber: "158639919", deployer: dao }, ...patch,
+});
+
+test("zap deployment is accepted only from a full verification of the exact contract", () => {
+  const d = core.zapDeployment(sourcify(), 10, other);
+  assert.equal(d.tx, zapTx);
+  assert.equal(d.block, 158639919n);
+  assert.equal(d.deployer, dao);
+  assert.match(core.zapSourcifyUrl(10, other), /\/contract\/10\/0x1{40}\?fields=deployment/);
+  for (const bad of [
+    { chainId: "8453" }, { address: dao }, { creationMatch: "partial_match" }, { runtimeMatch: null },
+    { deployment: { transactionHash: "0x12", blockNumber: "1", deployer: dao } }, { deployment: undefined },
+  ]) assert.throws(() => core.zapDeployment(sourcify(bad), 10, other));
+});
+
+test("zap panel is read-only: factory check, deployment, vault settings and a route to vault management", async () => {
+  const urls = [];
+  const h = harness({ fetch: async (url) => { urls.push(url); return { ok: true, json: async () => sourcify() }; } });
+  await h.load();
+  const text = h.ids.aeroZaps.textContent;
+  assert.match(text, /Zaps · read-only/);
+  assert.match(text, /matches configured factory/);
+  assert.match(text, /block 158639919/);
+  assert.match(text, /No owner, fee, pause, allowlist or upgrade/);
+  assert.match(text, /ITP \/ wstETH/);
+  assert.match(text, /DAO fee 2%/);
+  assert.equal(urls.length, 1);
+  assert.equal(h.ids.aeroZaps.all((e) => e.tag === "button" && e.textContent.trim() !== "Manage").length, 0);
+  await h.ids.aeroZaps.button("Manage").click();
+  assert.match(h.ids.aeroVault.textContent, /ITP \/ wstETH/);
+  assert.equal(h.batches.length, 0);
+  assert.equal(h.simulations.length, 0);
+});
+
+test("zap panel flags a factory mismatch and survives a missing or failing verification service", async () => {
+  const h = harness({ zapFactory: dao });
+  await h.load();
+  assert.match(h.ids.aeroZaps.textContent, /DOES NOT match configured factory/);
+  assert.match(h.ids.aeroZaps.textContent, /Unavailable in this environment/);
+  const f = harness({ fetch: async () => ({ ok: false, status: 503 }) });
+  await f.load();
+  assert.match(f.ids.aeroZaps.textContent, /HTTP 503/);
+  assert.match(f.ids.aeroFactory.textContent, /Factory · validated/);
 });

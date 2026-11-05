@@ -156,7 +156,19 @@
     for (let i = start; i < end; i++) indices.push(i);
     return { indices, next: end < total ? end : null };
   }
-  const core = { FACTORY_ABI, VAULT_ABI, FACTORY_V2_ABI, VAULT_V2_ABI, V2_LIMITS, abis, eq, bps, int, text, list, page };
+  // Sourcify v2 record → zap deployment; only a full creation + runtime match for the exact chain/address counts.
+  const zapSourcifyUrl = (chain, address) =>
+    `https://sourcify.dev/server/v2/contract/${Number(chain)}/${address}?fields=deployment,creationMatch,runtimeMatch,verifiedAt`;
+  function zapDeployment(result, chain, address) {
+    if (String(result?.chainId) !== String(chain) || !eq(result?.address, address)) throw new Error("Verification record is for a different contract.");
+    if (result.creationMatch !== "match" || result.runtimeMatch !== "match") throw new Error("Zap is not fully verified (creation and runtime).");
+    const d = result.deployment || {};
+    if (!/^0x[0-9a-fA-F]{64}$/.test(d.transactionHash || "") || !/^\d+$/.test(String(d.blockNumber)) || !/^0x[0-9a-fA-F]{40}$/.test(d.deployer || "")) {
+      throw new Error("Verification record has no usable deployment.");
+    }
+    return { tx: d.transactionHash, block: BigInt(d.blockNumber), deployer: d.deployer, verifiedAt: String(result.verifiedAt || "") };
+  }
+  const core = { FACTORY_ABI, VAULT_ABI, FACTORY_V2_ABI, VAULT_V2_ABI, V2_LIMITS, abis, eq, bps, int, text, list, page, zapSourcifyUrl, zapDeployment };
   if (typeof module !== "undefined" && module.exports) module.exports = core;
   else root.ITP_AERO = core;
 })(globalThis);

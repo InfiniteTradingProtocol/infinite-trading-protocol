@@ -396,6 +396,76 @@
       if (ctx.id === generation && selection === selected) $("aeroVault").replaceChildren(card("Vault validation failed · management unavailable", error(e)));
     }
   }
+  // Zap routers: immutable, so this is read-only. The settings zap users feel live on the vault/factory (managed below).
+  const SOURCE_CHAINS = [10, 8453]; // chains contract-source.html serves (its DEPLOYMENTS map)
+  async function zapPanel(ctx) {
+    const host = $("aeroZaps");
+    if (!host) return;
+    const zaps = [...new Set(ctx.config.vaults.filter((v) => v.zap).map((v) => v.zap.toLowerCase()))];
+    if (!zaps.length) return host.replaceChildren();
+    host.replaceChildren(card("Zaps", h("p", { class: "muted" }, "Reading zap state…")));
+    const v2 = ver(ctx) === 2;
+    const vaultFields = v2 ? ["exitBps", "maxSlippageBps", "maxSwapBps", "maxDeviationBps"] : ["entryBps", "exitBps"];
+    const daoFee = v2 ? await ctx.factory.daoFeeBps() : await ctx.factory.daoRewardBps();
+    const pct = (n) => `${Number(n) / 100}%`;
+    const LABELS = { entryBps: "Entry fee", exitBps: "Exit fee", maxSlippageBps: "Max slippage", maxSwapBps: "Max swap", maxDeviationBps: "Max TWAP deviation" };
+    const panels = await Promise.all(zaps.map(async (lower) => {
+      const vaults = ctx.config.vaults.filter((v) => v.zap?.toLowerCase() === lower && v.address);
+      const zapAddress = vaults[0]?.zap || ctx.config.vaults.find((v) => v.zap?.toLowerCase() === lower).zap;
+      const checks = [];
+      try {
+        await code(ctx.provider, zapAddress);
+        const z = new ethers.Contract(zapAddress, ["function factory() view returns (address)"], ctx.provider);
+        const zf = await z.factory();
+        checks.push(row("Factory (immutable)", C.eq(zf, ctx.config.factory)
+          ? h("span", {}, link(ctx.chain, zf), " · matches configured factory")
+          : h("span", { class: "err" }, `${zf} · DOES NOT match configured factory`)));
+      } catch (e) { checks.push(row("On-chain check", error(e))); }
+      let deployment = h("span", { class: "muted" }, "Unavailable in this environment.");
+      if (typeof window.fetch === "function") {
+        try {
+          const res = await window.fetch(C.zapSourcifyUrl(ctx.chain, zapAddress), { signal: AbortSignal.timeout(15000) });
+          if (!res.ok) throw new Error(`Sourcify returned HTTP ${res.status}.`);
+          const d = C.zapDeployment(await res.json(), ctx.chain, zapAddress);
+          const explorer = A.networkFor(ctx.chain).explorer;
+          deployment = h("span", {},
+            h("a", { href: `${explorer}/tx/${d.tx}`, target: "_blank", rel: "noopener noreferrer", title: d.tx }, short(d.tx)),
+            ` · block ${d.block} · deployer `, link(ctx.chain, d.deployer),
+            d.verifiedAt ? ` · verified ${d.verifiedAt.slice(0, 10)}` : "");
+        } catch (e) { deployment = h("span", { class: "err" }, A.decodeError(e)); }
+      }
+      const vaultRows = await Promise.all(vaults.map(async (meta) => {
+        try {
+          const [accepted, values] = await Promise.all([
+            ctx.factory.isVault(meta.address),
+            read(new ethers.Contract(meta.address, C.abis(ctx.config.version).vault, ctx.provider), vaultFields),
+          ]);
+          return h("tr", {}, h("td", {}, meta.name), h("td", {}, accepted ? "yes" : h("span", { class: "err" }, "no (zap reverts)")),
+            ...vaultFields.map((name) => h("td", {}, pct(values[name]))),
+            h("td", {}, h("button", { class: "btn small", onclick: () => inspect(ctx, meta.address) }, "Manage")));
+        } catch (e) {
+          return h("tr", {}, h("td", {}, meta.name), h("td", { colspan: String(vaultFields.length + 2) }, error(e)));
+        }
+      }));
+      return h("div", {},
+        h("h4", {}, `Zap ${short(zapAddress)}`),
+        table(
+          addrRow(ctx.chain, "Address", zapAddress),
+          ...checks,
+          row("Deployment", deployment),
+          row("Admin settings", "None. No owner, fee, pause, allowlist or upgrade; the DAO cannot change this contract. It holds no funds between calls and every swap is bounded by the user's minimums."),
+          row("Source", SOURCE_CHAINS.includes(ctx.chain)
+            ? h("a", { href: `contract-source.html?chain=${ctx.chain}`, target: "_blank", rel: "noopener noreferrer" }, "Open verified deployed source · copy · repository link")
+            : "No verified-source viewer for this network."),
+        ),
+        vaults.length ? h("p", { class: "muted" }, `Settings zap users pay or are bounded by. Change them on the vault (Manage) or the factory (DAO fee ${pct(daoFee)} of harvested income).`) : null,
+        vaults.length ? h("div", { class: "table-wrap" }, h("table", {},
+          h("thead", {}, h("tr", {}, h("th", {}, "Vault"), h("th", { title: "factory.isVault(vault): the zap only routes to factory vaults" }, "Accepted by zap"),
+            ...vaultFields.map((name) => h("th", { title: `vault.${name}()` }, LABELS[name])), h("th", {}, ""))),
+          h("tbody", {}, ...vaultRows))) : null);
+    }));
+    if (ctx.id === generation) host.replaceChildren(card("Zaps · read-only", ...panels));
+  }
   async function discover(ctx, count, offset = 0n) {
     const request = ++discovery;
     const host = $("aeroVaults");
@@ -426,6 +496,7 @@
     const chain = Number($("aeroNetwork").value);
     const config = CFG.aero[chain];
     $("aeroFactory").replaceChildren();
+    $("aeroZaps")?.replaceChildren();
     $("aeroVaults").replaceChildren();
     $("aeroVault").replaceChildren();
     $("aeroStatus").replaceChildren(h("p", { class: "muted" }, "Loading public on-chain state…"));
@@ -444,7 +515,10 @@
         : "Factory validated. Select a vault to verify ownership, pool, gauge and zap."),
         config.legacy ? h("p", { class: "muted" }, `Aero v${config.version || 1} on this network supersedes v1 factory ${config.legacy.factory}, zap ${config.legacy.zap} and vaults `
           + `${config.legacy.vaults.map((v) => `${v.name} ${v.address}`).join(", ")}. Superseded contracts are not managed or listed here.`) : null);
-      await discover(ctx, f.vaultCount);
+      await Promise.all([
+        discover(ctx, f.vaultCount),
+        zapPanel(ctx).catch((e) => { if (id === generation) $("aeroZaps").replaceChildren(card("Zaps", error(e))); }),
+      ]);
     } catch (e) { if (id === generation) $("aeroStatus").replaceChildren(error(e)); }
   }
   $("aeroRefresh").addEventListener("click", refresh);
