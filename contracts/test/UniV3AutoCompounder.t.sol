@@ -123,7 +123,13 @@ contract UniV3AutoCompounderTest is Test {
     // ─────────────────────────────────────────────────────────────────────────
 
     function setUp() public {
-        vm.createSelectFork(vm.envString("BASE_RPC_URL"));
+        // Fork-only suite: skipped, not failed, when BASE_RPC_URL is unset.
+        string memory rpc = vm.envOr("BASE_RPC_URL", string(""));
+        if (bytes(rpc).length == 0) {
+            vm.skip(true);
+            return;
+        }
+        vm.createSelectFork(rpc);
 
         // Resolve pool address from factory so the test isn't fragile to
         // address changes

@@ -14,7 +14,8 @@
   "vaults": {
     "itp-wsteth": "0x4bd84dD4fF4FfbcD2ee08dB22Ce3b9a2eeB10a58",
     "itp-usdc": "0x579f6D1646fDEb59B37a4DC880DbB6857004BafD",
-    "itp-wbtc": "0x6E276D140230C6f967ee2c79AEd69C90A24e115D"
+    "itp-wbtc": "0x6E276D140230C6f967ee2c79AEd69C90A24e115D",
+    "itp-xaero": "0x84b125959C530D770A6A1710Cb87Ad2f2bD67221"
   },
   "rewardRoutes": {
     "itp-wsteth": [
@@ -27,7 +28,8 @@
     "itp-wbtc": [
       "0x686c9942020a80EE853EaEF7663A266ae7991965",
       "0xeA3a2D098C4cd18EF0a9bc70aE3C79175f562e01"
-    ]
+    ],
+    "itp-xaero": []
   },
   "gauges": {},
   "fees": {
@@ -85,13 +87,25 @@
     {
       "step": "transferOwnership itp-wbtc",
       "hash": "0x40192246058422bf9b3bd0242b7b2afd4bf53fa4c5d362799cc3469107f375c0"
+    },
+    {
+      "step": "DAO Safe setup batch (safe-batches/optimism-v2-setup.json), Safe nonce 351",
+      "hash": "0x991b3a382423d0ed2c3dbb55f4f3f5c1ff4edadcfa4572d6b116d6850857c106"
+    },
+    {
+      "step": "createVault itp-xaero (2026-11-01, owner DAO Safe)",
+      "hash": "0xa0681457afed341e8426c4cc4d242b1dabdac5ac6c945a14bd6d7a59bac8ae05"
     }
   ],
-  "setup": "DAO Safe batch in safe-batches/optimism-v2-setup.json (pending until executed)",
+  "setup": "Executed 2026-10-25 04:05 UTC: DAO Safe nonce 351, tx 0x991b3a382423d0ed2c3dbb55f4f3f5c1ff4edadcfa4572d6b116d6850857c106 (safe-batches/optimism-v2-setup.json)",
+  "pending": [
+    "safe-batches/optimism-v2-xaero-official.json: setOfficial(itp-xaero, true); itp-xaero is not official until the DAO Safe executes it"
+  ],
   "audit": "../audits/2026-10-24_Aero_v1_v2_UltraCode_Audit.pdf",
   "pools": {
     "itp-wsteth": "0x76817cf226aa94b164295AED4f62e7a1EEd41d36",
     "itp-usdc": "0xeA3a2D098C4cd18EF0a9bc70aE3C79175f562e01",
-    "itp-wbtc": "0x96E354C66e56c6083064d30FCE5FeD009C3a6651"
+    "itp-wbtc": "0x96E354C66e56c6083064d30FCE5FeD009C3a6651",
+    "itp-xaero": "0x063ed094172BD12a6bA05972384536e4fA8e11fb"
   }
 }

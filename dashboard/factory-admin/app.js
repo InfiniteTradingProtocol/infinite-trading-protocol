@@ -989,7 +989,7 @@
       { name: "ITP", chainId: 8453, address: CFG.tokens.itpBase, holders: CFG.v3Compounders.map((v) => v.address) },
       { name: "cbEGGS", chainId: 8453, address: CFG.tokens.cbEggsBase, holders: CFG.v3Compounders.map((v) => v.address) },
       { name: "cbXRP", chainId: 8453, address: CFG.tokens.cbXrpBase, holders: CFG.v3Compounders.map((v) => v.address) },
-      { name: "AERO", chainId: 8453, address: CFG.tokens.aeroBase, holders: CFG.v3Compounders.map((v) => v.address) },
+      { name: "AERO (Old)", chainId: 8453, address: CFG.tokens.aeroBase, holders: CFG.v3Compounders.map((v) => v.address) },
       { name: "WETH", chainId: 8453, address: CFG.tokens.wethBase, holders: CFG.v3Compounders.map((v) => v.address) },
       { name: "SATO", chainId: 1, address: CFG.tokens.satoEthereum, holders: [CFG.stsato, CFG.dao] },
       { name: "stSATO", chainId: 1, address: CFG.tokens.stSatoEthereum, holders: [CFG.dao] },

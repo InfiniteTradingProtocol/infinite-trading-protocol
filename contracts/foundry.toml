@@ -14,7 +14,15 @@
   solc = "0.8.26"
   src = "src"
   test = "test"
-  skip = ["test/Booster.t.sol", "test/AutoCompoundVault.t.sol", "src/yield/**", "test/yield/**", "script/yield/**"]
+  # Shanghai can't compile the Cancun-only sources (OZ 5.6 transient storage / mcopy: ManagedVault,
+  # AgentSeats, MockITP, Aero v2) or run the live Cancun InfiniteVaultStrategy on a fork
+  # (EvmError: NotActivated). The cancun profiles below build and test them.
+  skip = [
+    "test/Booster.t.sol", "test/AutoCompoundVault.t.sol", "src/yield/**", "test/yield/**", "script/yield/**",
+    "src/ManagedVault.sol", "src/ManagedVaultFactory.sol", "test/ManagedVaultFactory.t.sol",
+    "src/AgentSeats.sol", "test/AgentSeats*.t.sol", "script/DeployAgentSeats.s.sol", "src/mock/MockITP.sol",
+    "src/aero/v2/**", "test/aero/v2/**", "script/aero/v2/**", "test/InfiniteVaultStrategy.fork.t.sol",
+  ]
   via_ir = true
 
 [profile.ci]
@@ -37,6 +45,7 @@
 [profile.velodrome]
   evm_version = "cancun"
   optimizer_runs = 200
+  skip = ["test/Booster.t.sol", "test/AutoCompoundVault.t.sol", "src/yield/**", "test/yield/**", "script/yield/**"]
   out = "out-velodrome"
   cache_path = "cache-velodrome"
 
@@ -45,6 +54,7 @@
 [profile.agent-seats]
   evm_version = "cancun"
   optimizer_runs = 10_000
+  skip = ["test/Booster.t.sol", "test/AutoCompoundVault.t.sol", "src/yield/**", "test/yield/**", "script/yield/**"]
   out = "out-agent-seats"
   cache_path = "cache-agent-seats"
 

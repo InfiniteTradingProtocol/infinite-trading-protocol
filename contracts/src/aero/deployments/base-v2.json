@@ -51,9 +51,13 @@
     {
       "step": "transferOwnership aero-usdc",
       "hash": "0xfddd6df95adf0f080b51aa97fedea0478ce85a33103edc8153f22367e42d9355"
+    },
+    {
+      "step": "DAO Safe setup batch (safe-batches/base-v2-setup.json), Safe nonce 62",
+      "hash": "0x17dff1d3027bafa4e67630746853a482cdfc948fa68182d72a3f31cf53c41f44"
     }
   ],
-  "setup": "DAO Safe batch in safe-batches/base-v2-setup.json (pending until executed)",
+  "setup": "Executed 2026-10-25 04:06 UTC: DAO Safe nonce 62, tx 0x17dff1d3027bafa4e67630746853a482cdfc948fa68182d72a3f31cf53c41f44 (safe-batches/base-v2-setup.json)",
   "audit": "../audits/2026-10-24_Aero_v1_v2_UltraCode_Audit.pdf",
   "pools": {
     "aero-usdc": "0xF634058dC94e6BF8e828E27621320C423bC8B18E"

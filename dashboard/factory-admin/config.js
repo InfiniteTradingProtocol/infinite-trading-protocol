@@ -61,7 +61,7 @@ window.ITP_CONFIG = {
     8453: {
       blockscout: "https://base.blockscout.com",
       dhedgeFactory: "0x49Afe3abCf66CF09Fab86cb1139D8811C8afe56F",
-      knownTokens: ["0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", "0x4200000000000000000000000000000000000006", "0x940181a94A35A4569E4529A3CDfB74e38FD98631", "0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf", "0xBA8CD87120aCA631F59231f9fD6c5469BbEE3440", "0xdDbAbe113c376f51E5817242871879353098c296", "0xcb585250f852C6c6bf90434AB21A00f02833a4af"],
+      knownTokens: ["0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", "0x4200000000000000000000000000000000000006", "0x3f5bF3EdAc59d650D8fDf9657a71F2f904A3a4Ee", "0x940181a94A35A4569E4529A3CDfB74e38FD98631", "0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf", "0xBA8CD87120aCA631F59231f9fD6c5469BbEE3440", "0xdDbAbe113c376f51E5817242871879353098c296", "0xcb585250f852C6c6bf90434AB21A00f02833a4af"],
       knownNfts: [{ address: "0x03a520b32C04BF3bEEf7BEb72E919cf822Ed34f1", enumerate: "erc721" }, { address: "0xeBf418Fe2512e7E6bd9b87a8F0f294aCDC67e6B4", enumerate: "veNFT" }],
     },
     42161: {
@@ -144,6 +144,17 @@ window.ITP_CONFIG = {
         token0: { symbol: "ITP", address: "0x0a7B751FcDBBAA8BB988B9217ad5Fb5cfe7bf7A0", decimals: 18 },
         token1: { symbol: "WBTC", address: "0x68f180fcCe6836688e9084f035309E29Bf0A2095", decimals: 8 },
         route: ["0x686c9942020a80EE853EaEF7663A266ae7991965", "0xeA3a2D098C4cd18EF0a9bc70aE3C79175f562e01"],
+      }, {
+        // Created 2026-11-01 straight to the Safe; official only once safe-batches/optimism-v2-xaero-official.json runs.
+        name: "ITP / xAERO",
+        address: "0x84b125959C530D770A6A1710Cb87Ad2f2bD67221",
+        zap: "0x95E97Def5456d5860a26DD3108A71Dd13b3E3592",
+        symbol: "acITP-xAERO",
+        pool: "0x063ed094172BD12a6bA05972384536e4fA8e11fb",
+        token0: { symbol: "ITP", address: "0x0a7B751FcDBBAA8BB988B9217ad5Fb5cfe7bf7A0", decimals: 18 },
+        token1: { symbol: "xAERO", address: "0xbdEaeA5205d16f34Cb40038052d91235D87B4C54", decimals: 18 },
+        // Reward xAERO is token1: no route.
+        route: [],
       }],
       // DAO-approved reward-route pools (xAERO/USDC, ITP/USDC); presets for setApprovedPool / setRewardRoute.
       routePools: ["0x686c9942020a80EE853EaEF7663A266ae7991965", "0xeA3a2D098C4cd18EF0a9bc70aE3C79175f562e01"],
@@ -169,6 +180,7 @@ window.ITP_CONFIG = {
     stSatoEthereum: "0xdee7f7a032326148e65ec3068f1c9b29e26b75b3",
     itpBase: "0xBA8CD87120aCA631F59231f9fD6c5469BbEE3440",
     wethBase: "0x4200000000000000000000000000000000000006",
+    // AERO (Old), the token of the Uniswap V3 ITP/AERO pool. Aero AERO is 0x3f5b…a4Ee since 2026-11-02.
     aeroBase: "0x940181a94A35A4569E4529A3CDfB74e38FD98631",
     cbEggsBase: "0xdDbAbe113c376f51E5817242871879353098c296",
     cbXrpBase: "0xcb585250f852C6c6bf90434AB21A00f02833a4af",

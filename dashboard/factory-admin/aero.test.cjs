@@ -133,6 +133,7 @@ test("registry lists the v2 factories; superseded v1 contracts are legacy-only",
   assert.ok(!op.vaults.some((v) => core.eq(v.address, op.implementation)), "implementation is never listed as a vault");
   assert.equal(JSON.stringify(op.vaults.map((v) => v.address)), JSON.stringify([
     "0x4bd84dD4fF4FfbcD2ee08dB22Ce3b9a2eeB10a58", "0x579f6D1646fDEb59B37a4DC880DbB6857004BafD", "0x6E276D140230C6f967ee2c79AEd69C90A24e115D",
+    "0x84b125959C530D770A6A1710Cb87Ad2f2bD67221",
   ]));
   // Superseded Optimism v1 contracts appear only as labelled legacy references.
   const live = JSON.stringify({ ...op, legacy: undefined }).toLowerCase();
