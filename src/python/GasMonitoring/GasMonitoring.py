@@ -41,7 +41,7 @@ SCAN_APIS: Dict[str, str] = {
     "polygon":  "https://api.polygonscan.com/api",
     "optimism": "https://api-optimistic.etherscan.io/api",
     "arbitrum": "https://api.arbiscan.io/api",
-    "base": "https://api.basescan.io/api",  
+    "base": "https://api.basescan.org/api",
 }
 
 SCAN_API_KEYS_ENV: Dict[str, str] = {

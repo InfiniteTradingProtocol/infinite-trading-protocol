@@ -99,7 +99,7 @@ def uniswap_fees(coin1, coin2, network):
     return fee
 
 def dhedgeComposition(pool,network):
-    url = f"http://localhost:8000/poolComposition?network={network}&pool={pool}"
+    url = f"https://api.infinitetrading.io/poolComposition?network={network}&pool={pool}"
     response = requests.get(url)
     content = response.text
     result = json.loads(content)

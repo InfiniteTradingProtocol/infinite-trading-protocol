@@ -10,6 +10,7 @@
     "@safe-global/api-kit": "^2.5.5",
     "@safe-global/protocol-kit": "^5.1.0",
     "@safe-global/types-kit": "^1.0.0",
+    "axios": "^1.21.0",
     "viem": "^2.21.0"
   },
   "devDependencies": {

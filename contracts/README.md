@@ -1,205 +1,73 @@
-# Foundry Template [![Open in Gitpod][gitpod-badge]][gitpod] [![Github Actions][gha-badge]][gha] [![Foundry][foundry-badge]][foundry] [![License: MIT][license-badge]][license]
+# Infinite Trading Protocol — Contracts
 
-[gitpod]: https://gitpod.io/#https://github.com/PaulRBerg/foundry-template
-[gitpod-badge]: https://img.shields.io/badge/Gitpod-Open%20in%20Gitpod-FFB45B?logo=gitpod
-[gha]: https://github.com/PaulRBerg/foundry-template/actions
-[gha-badge]: https://github.com/PaulRBerg/foundry-template/actions/workflows/ci.yml/badge.svg
-[foundry]: https://getfoundry.sh/
-[foundry-badge]: https://img.shields.io/badge/Built%20with-Foundry-FFDB1C.svg
-[license]: https://opensource.org/licenses/MIT
-[license-badge]: https://img.shields.io/badge/License-MIT-blue.svg
+Solidity sources, tests and deployment scripts for the Infinite Trading Protocol,
+built with [Foundry](https://book.getfoundry.sh/).
 
-A Foundry-based template for developing Solidity smart contracts, with sensible defaults.
+## Layout
 
-## What's Inside
+| Path | Contents |
+|---|---|
+| [`src/aero/`](src/aero/README.md) | Aero classic-pool auto-compounders: v1 and v2 (`AeroFactoryV2`, `AeroVaultV2`, `AeroTwapOracle`, `AeroZapV2`), deployments, Safe batches, audits |
+| [`src/velodrome/`](src/velodrome) | `InfiniteVaultStrategy`: Velodrome LP auto-compounding strategy (Beefy-style) |
+| [`src/yield/`](src/yield) | USD yield vault stack: `InfiniteTradingRegistry`, yield/weighted allocators and factories, bootstrappers, rate readers, Compound V3 adapter (Morpho Vault V2 based) |
+| [`src/UniV3AutoCompounder.sol`](src/UniV3AutoCompounder.sol), [`src/UniV4AutoCompounder.sol`](src/UniV4AutoCompounder.sol) | UUPS-upgradeable Uniswap V3 / V4 concentrated-liquidity auto-compounders |
+| [`src/ManagedVault.sol`](src/ManagedVault.sol), [`src/ManagedVaultFactory.sol`](src/ManagedVaultFactory.sol) | Single-owner managed vaults with DAO-controlled asset, route and executor allowlists |
+| [`src/TraderRouter.sol`](src/TraderRouter.sol) | Allowlisted trade router for vault executors |
+| [`src/AgentSeats.sol`](src/AgentSeats.sol), [`src/VelodromeItpOracle.sol`](src/VelodromeItpOracle.sol) | Infinite Agents memberships paid in ITP, priced by a Velodrome TWAP |
+| [`src/stsato.sol`](src/stsato.sol) | stSATO bonding-curve staking wrapper |
+| [`src/InfiniteBoost.sol`](src/InfiniteBoost.sol), [`src/autocompounder.sol`](src/autocompounder.sol) | Legacy staking boost and auto-compounder |
+| [`src/ERC20/`](src/ERC20), [`src/interfaces/`](src/interfaces) | Shared token and protocol interfaces |
+| [`src/mock/`](src/mock) | Test mocks (not deployed) |
+| [`test/`](test) | Unit, fuzz, invariant and fork tests |
+| [`script/`](script) | `forge script` deployment scripts |
+| [`lib/morpho-vault-v2/`](lib/morpho-vault-v2) | Vendored Morpho Vault V2 sources (own license) |
+| [`UPGRADE.md`](UPGRADE.md) | UUPS upgrade runbook for the Uniswap V3 auto-compounder |
 
-- [Forge](https://github.com/foundry-rs/foundry/blob/master/forge): compile, test, fuzz, format, and deploy smart
-  contracts
-- [Forge Std](https://github.com/foundry-rs/forge-std): collection of helpful contracts and utilities for testing
-- [Prettier](https://github.com/prettier/prettier): code formatter for non-Solidity files
-- [Solhint](https://github.com/protofire/solhint): linter for Solidity code
+## Setup
 
-## Getting Started
-
-Click the [`Use this template`](https://github.com/PaulRBerg/foundry-template/generate) button at the top of the page to
-create a new repository with this repo as the initial state.
-
-Or, if you prefer to install the template manually:
-
-```sh
-$ mkdir my-project
-$ cd my-project
-$ forge init --template PaulRBerg/foundry-template
-$ bun install # install Solhint, Prettier, and other Node.js deps
-```
-
-If this is your first time with Foundry, check out the
-[installation](https://github.com/foundry-rs/foundry#installation) instructions.
-
-## Features
-
-This template builds upon the frameworks and libraries mentioned above, so please consult their respective documentation
-for details about their specific features.
-
-For example, if you're interested in exploring Foundry in more detail, you should look at the
-[Foundry Book](https://book.getfoundry.sh/). In particular, you may be interested in reading the
-[Writing Tests](https://book.getfoundry.sh/forge/writing-tests.html) tutorial.
-
-### Sensible Defaults
-
-This template comes with a set of sensible default configurations for you to use. These defaults can be found in the
-following files:
-
-```text
-├── .editorconfig
-├── .gitignore
-├── .prettierignore
-├── .prettierrc.yml
-├── .solhint.json
-├── foundry.toml
-└── remappings.txt
-```
-
-### VSCode Integration
-
-This template is IDE agnostic, but for the best user experience, you may want to use it in VSCode alongside Nomic
-Foundation's [Solidity extension](https://marketplace.visualstudio.com/items?itemName=NomicFoundation.hardhat-solidity).
-
-For guidance on how to integrate a Foundry project in VSCode, please refer to this
-[guide](https://book.getfoundry.sh/config/vscode).
-
-### GitHub Actions
-
-This template comes with GitHub Actions pre-configured. Your contracts will be linted and tested on every push and pull
-request made to the `main` branch.
-
-You can edit the CI script in [.github/workflows/ci.yml](./.github/workflows/ci.yml).
-
-## Installing Dependencies
-
-Foundry typically uses git submodules to manage dependencies, but this template uses Node.js packages because
-[submodules don't scale](https://twitter.com/PaulRBerg/status/1736695487057531328).
-
-This is how to install dependencies:
-
-1. Install the dependency using your preferred package manager, e.g. `bun install dependency-name`
-   - Use this syntax to install from GitHub: `bun install github:username/repo-name`
-2. Add a remapping for the dependency in [remappings.txt](./remappings.txt), e.g.
-   `dependency-name=node_modules/dependency-name`
-
-Note that OpenZeppelin Contracts is pre-installed, so you can follow that as an example.
-
-## Writing Tests
-
-To write a new test contract, you start by importing `Test` from `forge-std`, and then you inherit it in your test
-contract. Forge Std comes with a pre-instantiated [cheatcodes](https://book.getfoundry.sh/cheatcodes/) environment
-accessible via the `vm` property. If you would like to view the logs in the terminal output, you can add the `-vvv` flag
-and use [console.log](https://book.getfoundry.sh/faq?highlight=console.log#how-do-i-use-consolelog).
-
-This template comes with an example test contract [Foo.t.sol](./test/Foo.t.sol)
-
-## Usage
-
-This is a list of the most frequently needed commands.
-
-### Build
-
-Build the contracts:
+Requires [Foundry](https://book.getfoundry.sh/getting-started/installation) and Node.js.
+OpenZeppelin and `forge-std` are resolved from `node_modules` (see [`remappings.txt`](remappings.txt)):
 
 ```sh
-$ forge build
+cd contracts
+npm install          # or: bun install
+cp .env.example .env # only needed for fork tests, deployments and verification
 ```
 
-### Clean
+## Build and test
 
-Delete the build artifacts and cache directories:
+Modules target different EVM versions, so each has its own Foundry profile in
+[`foundry.toml`](foundry.toml). The default profile builds the Shanghai sources and
+skips the Cancun-only modules.
+
+| Module | Command |
+|---|---|
+| Default (Uniswap compounders, stSATO, TraderRouter, legacy) | `forge test` |
+| Aero auto-compounders | `FOUNDRY_PROFILE=aero forge test` |
+| Velodrome strategy | `FOUNDRY_PROFILE=velodrome forge test --match-path 'test/InfiniteVaultStrategy*'` |
+| AgentSeats | `FOUNDRY_PROFILE=agent-seats forge test --match-path 'test/AgentSeats*'` |
+| USD yield vault | `FOUNDRY_PROFILE=yield forge test` |
+
+Fork tests (`*.fork.t.sol`) read live chain state and are opt-in; each one documents
+its RPC environment variables in its header and never broadcasts transactions. Contract sizes:
+`forge build --sizes` with the matching profile.
+
+Formatting and linting:
 
 ```sh
-$ forge clean
+forge fmt --check
+npx solhint "{script,src,test}/**/*.sol"
 ```
 
-### Compile
+## Deploying
 
-Compile the contracts:
+Every script under [`script/`](script) can be run without `--broadcast` for a dry
+run against a fork. Ownership of production contracts is transferred to the DAO
+Safe `0xb5dB6e5a301E595B76F40319896a8dbDc277CEfB`; admin actions are executed as
+Safe batches. Deployed addresses are listed in the
+[repository README](../README.md#deployments).
 
-```sh
-$ forge build
-```
+## Security
 
-### Coverage
-
-Get a test coverage report:
-
-```sh
-$ forge coverage
-```
-
-### Deploy
-
-Deploy to Anvil:
-
-```sh
-$ forge script script/Deploy.s.sol --broadcast --fork-url http://localhost:8545
-```
-
-For this script to work, you need to have a `MNEMONIC` environment variable set to a valid
-[BIP39 mnemonic](https://iancoleman.io/bip39/).
-
-For instructions on how to deploy to a testnet or mainnet, check out the
-[Solidity Scripting](https://book.getfoundry.sh/tutorials/solidity-scripting.html) tutorial.
-
-### Format
-
-Format the contracts:
-
-```sh
-$ forge fmt
-```
-
-### Gas Usage
-
-Get a gas report:
-
-```sh
-$ forge test --gas-report
-```
-
-### Lint
-
-Lint the contracts:
-
-```sh
-$ bun run lint
-```
-
-### Test
-
-Run the tests:
-
-```sh
-$ forge test
-```
-
-Generate test coverage and output result to the terminal:
-
-```sh
-$ bun run test:coverage
-```
-
-Generate test coverage with lcov report (you'll have to open the `./coverage/index.html` file in your browser, to do so
-simply copy paste the path):
-
-```sh
-$ bun run test:coverage:report
-```
-
-## Related Efforts
-
-- [abigger87/femplate](https://github.com/abigger87/femplate)
-- [cleanunicorn/ethereum-smartcontract-template](https://github.com/cleanunicorn/ethereum-smartcontract-template)
-- [foundry-rs/forge-template](https://github.com/foundry-rs/forge-template)
-- [FrankieIsLost/forge-template](https://github.com/FrankieIsLost/forge-template)
-
-## License
-
-This project is licensed under MIT.
+See [SECURITY.md](../SECURITY.md) for responsible disclosure and the
+[README](../README.md#security-reviews) for published reviews.

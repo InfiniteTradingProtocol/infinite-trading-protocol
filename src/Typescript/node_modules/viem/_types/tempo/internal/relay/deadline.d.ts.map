@@ -1,1 +1,0 @@
-{"version":3,"file":"deadline.d.ts","sourceRoot":"","sources":["../../../../tempo/internal/relay/deadline.ts"],"names":[],"mappings":"AACA,OAAO,KAAK,KAAK,KAAK,MAAM,gBAAgB,CAAA;AAE5C,uFAAuF;AACvF,wBAAsB,GAAG,CACvB,OAAO,EAAE,KAAK,CAAC,aAAa,CAAC,OAAO,EACpC,OAAO,EAAE,KAAK,CAAC,aAAa,CAAC,OAAO,EACpC,OAAO,EAAE,KAAK,CAAC,aAAa,CAAC,cAAc,EAC3C,MAAM,EAAE,KAAK,CAAC,aAAa,CAAC,OAAO,oBAoCpC"}

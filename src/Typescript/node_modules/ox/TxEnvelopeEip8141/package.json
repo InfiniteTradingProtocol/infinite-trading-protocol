@@ -1,6 +1,0 @@
-{
-  "type": "module",
-  "types": "../_types/core/TxEnvelopeEip8141.d.ts",
-  "main": "../_cjs/core/TxEnvelopeEip8141.js",
-  "module": "../_esm/core/TxEnvelopeEip8141.js"
-}

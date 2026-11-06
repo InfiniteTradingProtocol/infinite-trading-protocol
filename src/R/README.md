@@ -1,64 +1,25 @@
-# Infinite Trading Protocol - R Scripts
+# R examples
 
-This folder contains various R scripts used in the Infinite Trading Protocol project. Below is a brief description of each script and its functionality.
+Standalone R scripts for the Infinite Trading API and public market data. The
+maintained R client is the
+[Infinite Trading R SDK](https://github.com/InfiniteTradingProtocol/Infinite-Trading-R-SDK-v1).
 
-WE ARE MIGRATING AND IMPROVING THE R-SDK HERE: https://github.com/InfiniteTradingProtocol/Infinite-Trading-R-SDK-v1/tree/main
+| File | Purpose |
+|---|---|
+| [`api/adapter.R`](api/adapter.R) | `setSides()`: set a vault bot's side through the Infinite Trading API (`/setBot`), with retries |
+| [`coinbase.R`](coinbase.R) | `get_candles()` / `get_candles_with_retry()`: OHLCV candles from the Coinbase Exchange public API (1m to 1w) |
+| [`dHEDGE/dHEDGE_GraphQL.R`](dHEDGE/dHEDGE_GraphQL.R) | dHEDGE GraphQL helpers: pool trader, funds by trader, pool token price history |
+| [`dexscreener/itp_incentives.R`](dexscreener/itp_incentives.R) | `ds_price()`: DexScreener price, change and liquidity; ITP incentives per pool for the current epoch |
+| [`dexscreener/price_monitoring.R`](dexscreener/price_monitoring.R) | Price-threshold alerts for Optimism pairs, posted to Discord |
+| [`integrations/discord.R`](integrations/discord.R), [`integrations/googlechat.R`](integrations/googlechat.R) | Webhook senders used by the monitoring scripts |
+| [`utils/correlation_analysis.R`](utils/correlation_analysis.R) | Monthly-return correlation matrix across global indices, commodities and futures (Yahoo Finance) |
+| [`utils/staking_yield.R`](utils/staking_yield.R) | Staking yield per epoch chart with compounding |
 
-THIS IS OUTDATED.
+## Setup
 
-## Files
+```r
+install.packages(c("httr", "jsonlite", "dplyr", "tidyr", "ggplot2",
+                   "lubridate", "quantmod", "xts", "PerformanceAnalytics"))
+```
 
-### staking_yield.R
-
-This script generates a Staking Yield Per Epoch chart. It calculates the compound yield over several epochs and visualizes the results using `ggplot2`.
-
-- **Libraries Used**: `tidyr`, `ggplot2`, `dplyr`
-- **Key Functions**:
-  - Data setup for initial yield values
-  - Loop to decrement yield values over epochs
-  - Data frame creation and transformation
-  - Plotting the yield data
-
-### dhedge_graphql.R
-
-This script interacts with the dHedge GraphQL API to fetch fund compositions and monitor vault deposits. It sends alerts to a Discord channel when certain deposit thresholds are met.
-
-- **Libraries Used**: `httr`, `jsonlite`
-- **Key Functions**:
-  - `dhedge_graphql(query, name)`: Fetches fund compositions from the dHedge API.
-  - `coin_amount(pool, coins)`: Calculates the amount of specified coins in a pool.
-  - Monitoring loop that sends alerts to Discord based on deposit thresholds.
-
-### tradfi_correlations.R
-
-This script retrieves financial data from various traditional finance indices and calculates their correlations. It also formats the data for analysis and visualization.
-
-- **Libraries Used**: `PerformanceAnalytics`, `quantmod`, `xts`
-- **Key Functions**:
-  - `format_xts_ohlc(OHLC)`: Formats OHLC data.
-  - Data retrieval using `getSymbols` for multiple indices.
-  - Calculation of returns and correlation analysis.
-
-### integrations/googlechat.R
-
-This script provides a function to send messages to Google Chat spaces using webhooks.
-
-- **Libraries Used**: `httr`
-- **Key Functions**:
-  - `chat(space, message)`: Sends a message to a specified Google Chat space.
-
-### itp_incentives_dexscreener.R
-
-This script fetches price, price change, and liquidity data from DexScreener for various ITP pairs. It calculates the total ITP incentives for each pool in the current epoch.
-
-- **Libraries Used**: `httr`, `jsonlite`
-- **Key Functions**:
-  - `ds_price(pair, network, exchange, native, pricechange, liquidity)`: Fetches data from DexScreener.
-  - `incentives(network, exchange, liquidity_percentage, lps)`: Calculates liquidity and ITP incentives.
-
-## Usage
-
-To use these scripts, ensure that the required packages are installed in your R environment. You can install them using the following commands:
-
-```R
-install.packages(c("tidyr", "ggplot2", "dplyr", "httr", "jsonlite", "PerformanceAnalytics", "quantmod", "xts"))
+Webhook URLs and API keys are passed in by the caller; never commit them.

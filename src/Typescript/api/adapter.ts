@@ -94,12 +94,14 @@ async function setSides({
 
     for (let attempt = 0; attempt < retries; attempt++) {
         try {
-            const response = await axios.post(endpoint, { params, timeout: timeout * 1000 });
+            // Parameters go in the query string, like the Python and R adapters.
+            const response = await axios.post(endpoint, null, { params, timeout: timeout * 1000 });
             if (response.status === 200) {
                 console.log('Trade executed successfully');
                 return response.data;
             }
         } catch (error) {
+            if (!axios.isAxiosError(error)) throw error;
             if (error.response && error.response.status === 504) {
                 console.log('Gateway Timeout. Retrying...');
             } else if (error.code === 'ECONNABORTED') {

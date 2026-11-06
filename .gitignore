@@ -1,11 +1,25 @@
 .DS_Store
 
-# Environment files
+# Dependencies
+node_modules/
+
+# Environment files (commit only *.env.example templates)
 .env*
 *.env
 *.env.*
+!.env.example
+!*.env.example
 
-# Private plans live outside git (~/.copilot/skills/infinite-trading-plans)
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# R
+.Rhistory
+.RData
+
+# Local-only notes
 docs/future-plans/
 
 # Isolated Aero build output

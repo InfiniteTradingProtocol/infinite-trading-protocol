@@ -1,59 +1,16 @@
-# Infinite Trading Protocol - Source Code
+# Integration examples
 
-This repository contains various scripts and functions implemented in different programming languages to support the Infinite Trading Protocol. Below is a detailed description of the contents and functionality.
+Small, self-contained scripts showing how to use the
+[Infinite Trading API](https://api.infinitetrading.io) and public on-chain and
+market data from R, Python and TypeScript. They are examples, not production
+services: keys and webhooks are always supplied by the caller.
 
-## Contents
+| Folder | Highlights |
+|---|---|
+| [`R/`](R/README.md) | API adapter, Coinbase candles, dHEDGE GraphQL, DexScreener incentives and alerts, correlation analysis |
+| [`python/`](python/README.md) | API adapter, Coinbase candles, DeFi helpers, ITP incentives, gas-balance monitor |
+| [`Typescript/`](Typescript/README.md) | API adapter, Safe upgrade proposal, Velodrome managed veNFT inspector |
 
-### `/src/R/`
-
-- `README.md`: Detailed descriptions of the R scripts available in this folder.
-- `dhedge_graphql.R`: Interacts with the dHedge GraphQL API to fetch fund compositions and monitor vault deposits; sends alerts to Discord.
-- `ds_price.R`: Fetches price, price change, and liquidity data from DexScreener for various pairs.
-- `itp_incentives_dexscreener.R`: Fetches price, price change, and liquidity data from DexScreener for ITP pairs and calculates total incentives for each pool.
-- `staking_yield.R`: Generates a Staking Yield Per Epoch chart; calculates compound yield over several epochs.
-- `technical_indicators.R`: Placeholder for technical indicators (currently empty).
-- `tradfi_correlations.R`: Retrieves financial data from traditional finance indices and calculates their correlations.
-- **Subfolder `/api/`**:
-  - `adapter.R`: Adapter script for API interactions.
-
-### `/src/Typescript/`
-
-- `README.md`: Detailed descriptions of the TypeScript functions available in this folder.
-- `function1.ts`: Description of what function1.ts does.
-- `function2.ts`: Description of what function2.ts does.
-- **Subfolder `/utils/`**:
-  - `helper.ts`: Utility functions for common operations.
-
-### `/src/python/`
-
-- `README.md`: Detailed descriptions of the Python scripts available in this folder.
-- `coinbase.py`: Fetches historical OHLCV candle data from the Coinbase API for various trading pairs.
-- `defi.py`: Contains utility functions for DeFi operations across different networks, including fetching Uniswap fees, dHedge pool compositions, transaction status, and wallet balances.
-- `itp_incentives_dexscreener.py`: Fetches LP data from DexScreener and calculates total ITP incentives for each pool.
-- **Subfolder `/api/`**:
-  - `adapter.py`: Adapter script for API interactions.
-
-## Usage
-
-### R Scripts
-
-To use the R scripts, make sure you have the required packages installed in your R environment. You can install them using the following command:
-
-```R
-install.packages(c("tidyr", "ggplot2", "dplyr", "httr", "jsonlite", "PerformanceAnalytics", "quantmod", "xts"))
-```
-
-### Python Scripts
-
-To use the Python scripts, ensure you have Python installed on your system along with the necessary dependencies. You can install the dependencies using the following commands:
-
-```sh
-pip install requests pandas numpy
-```
-
-Run any of the Python scripts using the following command:
-
-```sh
-python <script_name>.py
-```
-```
+Every language ships the same API adapter (`api/adapter.*`), which calls
+`POST /setBot` to set a vault bot's side with retries. API keys and endpoints are
+described in the [API documentation](../gitbook/introduction/api/README.md).

@@ -9,12 +9,12 @@ import requests
 import time
 
 def setSides(
+    pair,
+    side,
     api_key="ADD YOUR API KEY HERE",
     protocol="dhedge",
     pool="ADD YOUR POOL ADDRESS HERE",
     network="polygon",
-    pair,
-    side,
     threshold=1,
     max_usd=500,
     slippage=1,
@@ -99,6 +99,7 @@ def setSides(
     print("Failed to change sides after multiple attempts.")
     return {"error": "timeout", "message": "Failed to change sides after multiple attempts."}
 
-# Example usage
-response = setSides(pair="WBTC-USDC", side="long")
-print(response)
+if __name__ == "__main__":
+    # Example usage
+    response = setSides(pair="WBTC-USDC", side="long")
+    print(response)

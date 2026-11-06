@@ -1,1 +1,0 @@
-{"version":3,"file":"formatGwei.js","sourceRoot":"","sources":["../../../utils/unit/formatGwei.ts"],"names":[],"mappings":"AACA,OAAO,KAAK,KAAK,MAAM,YAAY,CAAA;AAInC;;;;;;;;;;GAUG;AACH,MAAM,UAAU,UAAU,CAAC,GAAW,EAAE,OAAc,KAAK;IACzD,OAAO,KAAK,CAAC,UAAU,CAAC,GAAG,EAAE,IAAI,CAAC,CAAA;AACpC,CAAC"}

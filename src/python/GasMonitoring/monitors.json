@@ -1,0 +1,18 @@
+{
+  "exchange": "kraken",
+  "notify": ["stdout", "telegram"],
+  "thresholds": {
+    "polygon": 50,
+    "ethereum": 100,
+    "optimism": 25,
+    "base": 25,
+    "arbitrum": 25
+  },
+  "monitors": [
+    { "name": "DAO Wallet Polygon", "address": "0xb5dB6e5a301E595B76F40319896a8dbDc277CEfB", "network": "polygon" },
+    { "name": "DAO Wallet ETH",     "address": "0xb5dB6e5a301E595B76F40319896a8dbDc277CEfB", "network": "ethereum" },
+    { "name": "DAO Wallet OP",      "address": "0xb5dB6e5a301E595B76F40319896a8dbDc277CEfB", "network": "optimism" },
+    { "name": "DAO Wallet BASE",    "address": "0xb5dB6e5a301E595B76F40319896a8dbDc277CEfB", "network": "base" },
+    { "name": "DAO Wallet ARB",     "address": "0xb5dB6e5a301E595B76F40319896a8dbDc277CEfB", "network": "arbitrum" }
+  ]
+}

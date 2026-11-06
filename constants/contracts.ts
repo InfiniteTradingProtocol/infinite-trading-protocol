@@ -62,20 +62,20 @@ export const V3_COMPOUNDER_VAULTS = {
       proxy:  '0xd75d5d3ef0880ff25fd66d4fdf5b461ffb97674d',
       pool:   '0x3819e346E6347d75ceF0CfFd3FF41489f543a9Cc',
       token0: '0x940181a94A35A4569E4529A3CDfB74e38FD98631', // AERO (Old): this pool's token is fixed
-      token1: '0xBA8CD87120aCA631F59231f9fD6c5469BbEE3440', // ITP
+      token1: '0xBA8CD87120aCA631F59231f9fD6c5469BbEE3440', // ITP (Base bridged, deprecated)
       fee:    10000,
     },
     'ITP/cbEGGS': {
       proxy:  '0xa1bca9f6d9618348e7c33284082e2959a3449aa8',
       pool:   '0x750813fbFBD24310A31e9dcaE3b143C75F241344',
-      token0: '0xBA8CD87120aCA631F59231f9fD6c5469BbEE3440', // ITP
+      token0: '0xBA8CD87120aCA631F59231f9fD6c5469BbEE3440', // ITP (Base bridged, deprecated)
       token1: '0xdDbAbe113c376f51E5817242871879353098c296', // cbEGGS
       fee:    10000,
     },
     'ITP/cbXRP': {
       proxy:  '0x2fe57c7a0978d5ba39461572b87db41131b43646',
       pool:   '0x33840Ce3817ef3F79DA49EC70e4653c4aE20eE3F',
-      token0: '0xBA8CD87120aCA631F59231f9fD6c5469BbEE3440', // ITP
+      token0: '0xBA8CD87120aCA631F59231f9fD6c5469BbEE3440', // ITP (Base bridged, deprecated)
       token1: '0xcb585250f852C6c6bf90434AB21A00f02833a4af', // cbXRP
       fee:    10000,
     },
@@ -104,8 +104,14 @@ export const TOKENS = {
   [CHAIN_IDS.ETHEREUM]: {
     SATO: '0x829f4B62EEBE12Af653b4dD4fFc480966F7d7f09',
   },
+  [CHAIN_IDS.OPTIMISM]: {
+    /** Official ITP token (Optimism is the only official deployment) */
+    ITP: '0x0a7B751FcDBBAA8BB988B9217ad5Fb5cfe7bf7A0',
+  },
   [CHAIN_IDS.BASE]: {
-    ITP:    '0xBA8CD87120aCA631F59231f9fD6c5469BbEE3440',
+    /** DEPRECATED: bridged ITP on Base is not the official token.
+     *  Kept only because the legacy Base vaults above were built on its pools. */
+    ITP_BASE_DEPRECATED: '0xBA8CD87120aCA631F59231f9fD6c5469BbEE3440',
     WETH:   '0x4200000000000000000000000000000000000006',
     // Aero AERO since 2026-11-02; the legacy Aerodrome AERO stays in older pools such as ITP/AERO above.
     AERO:     '0x3f5bF3EdAc59d650D8fDf9657a71F2f904A3a4Ee',
