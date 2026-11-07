@@ -9,6 +9,8 @@ out-velodrome
 out-agent-seats
 cache-yield
 out-yield
+cache-subaccounts
+out-subaccounts
 
 # files
 *.env

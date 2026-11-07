@@ -22,6 +22,7 @@
     "src/ManagedVault.sol", "src/ManagedVaultFactory.sol", "test/ManagedVaultFactory.t.sol",
     "src/AgentSeats.sol", "test/AgentSeats*.t.sol", "script/DeployAgentSeats.s.sol", "src/mock/MockITP.sol",
     "src/aero/v2/**", "test/aero/v2/**", "script/aero/v2/**", "test/InfiniteVaultStrategy.fork.t.sol",
+    "src/subaccounts/**", "test/subaccounts/**",
   ]
   via_ir = true
 
@@ -57,6 +58,19 @@
   skip = ["test/Booster.t.sol", "test/AutoCompoundVault.t.sol", "src/yield/**", "test/yield/**", "script/yield/**"]
   out = "out-agent-seats"
   cache_path = "cache-agent-seats"
+
+# Infinite Subaccounts: per-user accounts (EIP-1167 clones), factory, swap sandbox. Cancun for transient
+# reentrancy guards in clones. FOUNDRY_PROFILE=subaccounts forge test
+[profile.subaccounts]
+  evm_version = "cancun"
+  src = "src/subaccounts"
+  test = "test/subaccounts"
+  script = "script/subaccounts"
+  skip = []
+  optimizer_runs = 10_000
+  out = "out-subaccounts"
+  cache_path = "cache-subaccounts"
+  fuzz = { runs = 1_000 }
 
 # Infinite Trading USD Yield vault (Morpho Vault V2 + InfiniteTradingRegistry), Base.
 # FOUNDRY_PROFILE=yield forge test --match-path 'test/yield/*'
